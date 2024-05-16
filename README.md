@@ -1,0 +1,1 @@
+# apiato-swagger-generator-opuvuvuvuuv
