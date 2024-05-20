@@ -14,6 +14,7 @@ use Batyukovstudio\ApiatoSwaggerGenerator\Exceptions\ExtensionNotLoaded;
 use Illuminate\Support\Facades\Response as ResponseFacade;
 use Batyukovstudio\ApiatoSwaggerGenerator\Exceptions\InvalidFormatException;
 use Batyukovstudio\ApiatoSwaggerGenerator\Exceptions\InvalidAuthenticationFlow;
+use Batyukovstudio\ApiatoSwaggerGenerator\Services\SwaggerGeneratorService;
 
 /**
  * Class SwaggerController
@@ -41,7 +42,12 @@ class SwaggerController extends BaseController
      * @return Response
      * @throws ExtensionNotLoaded|InvalidFormatException|InvalidAuthenticationFlow
      */
-    public function documentation(Request $request): Response {
+    public function documentation(Request $request, SwaggerGeneratorService $swaggerGeneratorService): Response {
+        $content = $swaggerGeneratorService->generate();
+//        dd($content);
+        return ResponseFacade::make($content, 200, [
+            'Content-Type' => 'application/json',
+        ]);
         $documentation = swagger_resolve_documentation_file_path();
         if (strlen($documentation) === 0) {
             abort(404, sprintf('Please generate documentation first, then access this page'));

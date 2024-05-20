@@ -2,13 +2,18 @@
 
 namespace Batyukovstudio\ApiatoSwaggerGenerator\Services;
 
-use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPIInfoValue;
+use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\OpenAPIInfoValue;
+use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\OpenAPIServerValue;
+use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\OpenAPIParametersValue;
+use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\OpenAPIRouteValue;
+use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\OpenAPISchemaValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPIValue;
-use Batyukovstudio\ApiatoSwaggerGenerator\Values\Servers\OpenAPIServerValue;
+use Batyukovstudio\ApiatoSwaggerGenerator\Values\PathValue;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
-use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Collection;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Route as Route;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Route as RouteFacade;
 use ReflectionMethod;
 
 
@@ -19,39 +24,97 @@ class SwaggerGeneratorService
 
     public function generate()
     {
-        $routes = Route::getRoutes();
+        $routes = RouteFacade::getRoutes();
 
-        $data = $this->generateOpenAPI();
+        $documentation = $this->generateOpenAPI();
+        $paths = $documentation->getPaths();
+        $ignored = config('swagger.ignored.routes_like');
+        $ignoredNotLike = config('swagger.ignored.routes_not_like');
 
-        /** @var Illuminate\Routing\Route $route */
+        /** @var Route $route */
         foreach ($routes as $route) {
-            $action = $route->getAction();
-            dd($action);
+            $rules = self::extractRules($route);
+            $uri = $route->uri;
+            $isValid = true;
+            foreach ($ignored as $item) {
+                if (str_contains($uri, $item)) {
+                    $isValid = false;
+                }
+            }
+            foreach ($ignoredNotLike as $item) {
+                if (!str_contains($uri, $item)) {
+                    $isValid = false;
+                }
+            }
+            if ($isValid === false) {
+                continue;
+            }
+            if (!isset($paths[$route->uri])) {
+                $paths[$route->uri] = collect();
+            }
+            $paths[$route->uri][strtolower($route->methods[0])] = self::assembleOpenAPIRoute($route, $rules);
+        }
 
-            if (isset($action['uses']) && is_string($action['uses'])) {
-                [$controller, $method] = explode('@', $action['uses']);
-                if (class_exists($controller)) {
-                    $reflection = new ReflectionMethod($controller, $method);
-//                    dd($reflection);
-                    foreach ($reflection->getParameters() as $parameter) {
-                        $className =  $parameter->getType()?->getName();
-                        if ($className !== null && is_subclass_of($className, Request::class)) {
-                            $rules = (new $className())->rules();
-                            dd($rules);
-//                                $rules = app($className)->rules();
-//                                dd($rules);
-                        }
+        $documentation->setPaths($paths);
+
+        return $documentation->toArray();
+    }
+
+    private static function extractRules(Route $route): array
+    {
+        $rules = [];
+        $action = $route->getAction();
+
+        if (isset($action['uses']) && is_string($action['uses'])) {
+            [$controller, $method] = explode('@', $action['uses']);
+            if (class_exists($controller)) {
+                $reflection = new ReflectionMethod($controller, $method);
+                foreach ($reflection->getParameters() as $parameter) {
+                    $className =  $parameter->getType()?->getName();
+                    if ($className !== null && is_subclass_of($className, Request::class)) {
+                        $rules = (new $className())->rules();
                     }
                 }
             }
         }
 
-        dd($routes);
+        return $rules;
     }
 
-    private static function extractController()
+    private static function assembleOpenAPIRoute(Route $route, array $rules): OpenAPIRouteValue
     {
+        $parameters = new Collection();
 
+        foreach ($rules as $ruleName => $rule) {
+            if (is_array($rule)) {
+                $ruleParameters = $rule;
+                foreach ($ruleParameters as $key => $ruleParameter) {
+                    if (!is_string($ruleParameter)) {
+                        $ruleParameter = $ruleParameter::class; // TODO: стратегии обработки разных классов Rule
+                    }
+                    $ruleParameters[$key] = $ruleParameter;
+                }
+                $rule = implode('|', $ruleParameters);
+            } elseif (!is_string($rule)) {
+                $rule = $rule::class;
+            }
+
+            $ruleFull = $rule;
+            $ruleParameters = array_flip(explode('|', $rule));
+
+            $parameter = OpenAPIParametersValue::run()
+                ->setName($ruleName)
+                ->setDescription($ruleFull)
+                ->setRequired(isset($ruleParameters['required']))
+                ->setDeprecated(false)
+                ->setIn('query')
+                ->setSchema(OpenAPISchemaValue::run()->setType('string'));
+
+            $parameters->push($parameter);
+        }
+
+        return OpenAPIRouteValue::run()
+            ->setParameters($parameters);
     }
 
     private static function generateOpenAPI(): OpenAPIValue

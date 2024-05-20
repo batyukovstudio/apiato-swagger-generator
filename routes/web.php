@@ -16,7 +16,6 @@ if (Config::get('swagger.enable', true)) {
         Route::get('', [SwaggerController::class, 'api']);
         Route::get('content', [SwaggerController::class, 'documentation']);
         Route::get('test', function (Repository $configuration, SwaggerGeneratorService $swaggerGeneratorService) {
-
             dd($swaggerGeneratorService->generate());
 //            $countainerPaths = \Apiato\Core\Foundation\Facades\Apiato::getAllContainerPaths();
 //            $app = \Apiato\Core\Foundation\Facades\Apiato::getFacadeApplication();

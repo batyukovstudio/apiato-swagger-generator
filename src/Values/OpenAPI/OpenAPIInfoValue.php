@@ -1,6 +1,6 @@
 <?php
 
-namespace Batyukovstudio\ApiatoSwaggerGenerator\Values;
+namespace Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI;
 
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\Abstract\Value;
 

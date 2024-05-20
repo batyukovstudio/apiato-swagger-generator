@@ -33,7 +33,8 @@ abstract class Value implements Arrayable
                 }
             }
 
-            $result[Str::snake((string)$name)] = $value;
+            $result[$name] = $value;
+//            $result[Str::snake((string)$name)] = $value;
         }
 
         return $result;

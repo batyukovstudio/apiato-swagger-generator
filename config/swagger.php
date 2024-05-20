@@ -41,31 +41,23 @@ return [
             'head',
             'options'
         ],
-        'routes' => [
-            'passport.authorizations.authorize',
-            'passport.authorizations.approve',
-            'passport.authorizations.deny',
-            'passport.token',
-            'passport.tokens.index',
-            'passport.tokens.destroy',
-            'passport.token.refresh',
-            'passport.clients.index',
-            'passport.clients.store',
-            'passport.clients.update',
-            'passport.clients.destroy',
-            'passport.scopes.index',
-            'passport.personal.tokens.index',
-            'passport.personal.tokens.store',
-            'passport.personal.tokens.destroy',
-
-
-            '/_ignition/health-check',
-            '/_ignition/execute-solution',
-            '/_ignition/share-report',
-            '/_ignition/scripts/{script}',
-            '/_ignition/styles/{style}',
+        'routes_like' => [
+            'email/verification-notification',
+            'email/verify/{id}/{hash}',
+            'permissions',
+            'roles',
+            'oauth',
+            'passport',
+            '_ignition',
+            '_debugbar',
+            'docs',
+            'web',
+            'openapi',
             env('SWAGGER_PATH', '/documentation'),
             env('SWAGGER_PATH', '/documentation') . '/content'
+        ],
+        'routes_not_like' => [
+            'api/v1/'
         ],
 
         'models' => []

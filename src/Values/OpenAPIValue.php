@@ -3,6 +3,7 @@
 namespace Batyukovstudio\ApiatoSwaggerGenerator\Values;
 
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\Abstract\Value;
+use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\OpenAPIInfoValue;
 use Illuminate\Support\Collection;
 
 class OpenAPIValue extends Value

@@ -128,9 +128,11 @@ class Generator {
                 }
                 $methodKey = $pathKey . '.' . $method;
                 Arr::set($documentation, $methodKey, $this->generatePath($route, $method, $tagFromPrefix));
+
             }
 
         }
+//        dd($documentation);
 
         return $documentation;
     }
@@ -282,6 +284,17 @@ class Generator {
                     break;
                 default: // Do nothing, all operation will be in one default tag
             }
+            Arr::set($documentation, 'parameters', [(object)[
+                "name" => "petId",
+                "in"   => "query",
+//                "in"   => "path",
+                "description" => "ID of pet that needs to be updated",
+                "required" => true,
+                "schema"   => (object)[
+                    "type" => "integer",
+                    'default' => 555,
+                    'enum' => ['active', 'inactive', 'pending'],
+                ]]]);
         }
 
         return $documentation;
