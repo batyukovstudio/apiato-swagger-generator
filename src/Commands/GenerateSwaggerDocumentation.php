@@ -20,9 +20,7 @@ class GenerateSwaggerDocumentation extends Command {
      * The name and signature of the console command.
      * @var string
      */
-    protected $signature = 'swagger:generate
-                            {--format=json : The format of the output, current options are json and yaml}
-                            {--f|filter= : Filter to a specific route prefix, such as /api or /v2/api}';
+    protected $signature = 'swagger:generate';
 
     /**
      * The console command description.

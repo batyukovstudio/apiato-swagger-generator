@@ -8,7 +8,6 @@ use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\OpenAPIParameters
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\OpenAPIRouteValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\OpenAPISchemaValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPIValue;
-use Batyukovstudio\ApiatoSwaggerGenerator\Values\PathValue;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route as Route;
@@ -19,6 +18,10 @@ use ReflectionMethod;
 
 class SwaggerGeneratorService
 {
+    private const AVAILABLE_METHODS = [
+        'GET', 'POST', 'PUT', 'PATCH', 'DELETE'
+    ];
+
     public function __construct() {
     }
 
@@ -28,8 +31,8 @@ class SwaggerGeneratorService
 
         $documentation = $this->generateOpenAPI();
         $paths = $documentation->getPaths();
-        $ignored = config('swagger.ignored.routes_like');
-        $ignoredNotLike = config('swagger.ignored.routes_not_like');
+        $ignored = config('swagger.ignore.routes_like');
+        $ignoredNotLike = config('swagger.ignore.routes_not_like');
 
         /** @var Route $route */
         foreach ($routes as $route) {
@@ -52,36 +55,58 @@ class SwaggerGeneratorService
             if (!isset($paths[$route->uri])) {
                 $paths[$route->uri] = collect();
             }
-            $paths[$route->uri][strtolower($route->methods[0])] = self::assembleOpenAPIRoute($route, $rules);
+            $paths[$route->uri][strtolower($route->methods[0])] = self::assembleOpenAPIRoute($rules['tag'], $rules['rules']);
         }
 
         $documentation->setPaths($paths);
+//        $documentation->setTags(collect([
+//            (object)[
+//                'name' => 'User',
+//            ],
+//        ]));
 
         return $documentation->toArray();
     }
 
     private static function extractRules(Route $route): array
     {
+        $tag = null;
         $rules = [];
         $action = $route->getAction();
 
-        if (isset($action['uses']) && is_string($action['uses'])) {
+        if (isset($action['uses']) && is_string($action['uses'])) {  // существует валидный контроллер
             [$controller, $method] = explode('@', $action['uses']);
             if (class_exists($controller)) {
                 $reflection = new ReflectionMethod($controller, $method);
-                foreach ($reflection->getParameters() as $parameter) {
-                    $className =  $parameter->getType()?->getName();
-                    if ($className !== null && is_subclass_of($className, Request::class)) {
-                        $rules = (new $className())->rules();
+
+                $controllerPathParts = explode('\\', $controller);
+                if (count($controllerPathParts) === 8) {  // Apiato controllers only
+                    if ($controllerPathParts[0] === 'App' &&
+                        $controllerPathParts[1] === 'Containers' &&
+                        $controllerPathParts[4] === 'UI' &&
+                        $controllerPathParts[5] === 'API' &&
+                        $controllerPathParts[6] === 'Controllers'
+                    ) {
+                        $tag = $controllerPathParts[3];
+
+                        foreach ($reflection->getParameters() as $parameter) {
+                            $className =  $parameter->getType()?->getName();
+                            if (is_subclass_of($className, Request::class)) {
+                                $rules = (new $className())->rules();
+                            }
+                        }
                     }
                 }
             }
         }
 
-        return $rules;
+        return [
+            'rules' => $rules,
+            'tag' => $tag,
+        ];
     }
 
-    private static function assembleOpenAPIRoute(Route $route, array $rules): OpenAPIRouteValue
+    private static function assembleOpenAPIRoute(?string $tag, array $rules): OpenAPIRouteValue
     {
         $parameters = new Collection();
 
@@ -114,6 +139,7 @@ class SwaggerGeneratorService
         }
 
         return OpenAPIRouteValue::run()
+            ->setTags(collect($tag === null ? 'default' : $tag))
             ->setParameters($parameters);
     }
 
