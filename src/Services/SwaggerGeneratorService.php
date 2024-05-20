@@ -8,11 +8,11 @@ use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\OpenAPIParameters
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\OpenAPIRouteValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\OpenAPISchemaValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPIValue;
+use Batyukovstudio\ApiatoSwaggerGenerator\Values\RouteInfoValue;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route as Route;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Route as RouteFacade;
 use ReflectionMethod;
 
 
@@ -21,54 +21,56 @@ class SwaggerGeneratorService
     private const AVAILABLE_METHODS = [
         'GET', 'POST', 'PUT', 'PATCH', 'DELETE'
     ];
+    private const DEFAULT_TAG = 'Default';
+
+    private array $ignoreLike;
+    private array $ignoreNotLike;
 
     public function __construct() {
+        $this->ignoreLike = config('swagger.ignore.routes_like');
+        $this->ignoreNotLike = config('swagger.ignore.routes_not_like');
     }
 
-    public function generate()
+    public function generate(): array
     {
-        $routes = RouteFacade::getRoutes();
+        $routes = \Illuminate\Support\Facades\Route::getRoutes();
 
         $documentation = $this->generateOpenAPI();
         $paths = $documentation->getPaths();
-        $ignored = config('swagger.ignore.routes_like');
-        $ignoredNotLike = config('swagger.ignore.routes_not_like');
+        $tags = new Collection();
 
         /** @var Route $route */
         foreach ($routes as $route) {
-            $rules = self::extractRules($route);
+            $routeInfo = self::extractRouteInfo($route);
+
+            $tag = $routeInfo->getTag();
+            if ($tag !== null && $tags->contains($tag) === false) {
+                $tags->push($routeInfo->getTag());
+            }
+
             $uri = $route->uri;
-            $isValid = true;
-            foreach ($ignored as $item) {
-                if (str_contains($uri, $item)) {
-                    $isValid = false;
-                }
-            }
-            foreach ($ignoredNotLike as $item) {
-                if (!str_contains($uri, $item)) {
-                    $isValid = false;
-                }
-            }
-            if ($isValid === false) {
+
+            if ($this->isIgnorable($uri) === false) {
                 continue;
             }
+
             if (!isset($paths[$route->uri])) {
-                $paths[$route->uri] = collect();
+                $paths[$route->uri] = new Collection();
             }
-            $paths[$route->uri][strtolower($route->methods[0])] = self::assembleOpenAPIRoute($rules['tag'], $rules['rules']);
+
+            $routeMethods = self::filterRouteMethods($route->methods);
+            foreach ($routeMethods as $routeMethod) {
+                $paths[$uri][$routeMethod] = self::assembleOpenAPIRoute($tag, $routeInfo->getRules());
+            }
         }
 
-        $documentation->setPaths($paths);
-//        $documentation->setTags(collect([
-//            (object)[
-//                'name' => 'User',
-//            ],
-//        ]));
-
-        return $documentation->toArray();
+        return $documentation
+            ->setPaths($paths)
+            ->setTags($tags)
+            ->toArray();
     }
 
-    private static function extractRules(Route $route): array
+    private static function extractRouteInfo(Route $route): RouteInfoValue
     {
         $tag = null;
         $rules = [];
@@ -100,13 +102,12 @@ class SwaggerGeneratorService
             }
         }
 
-        return [
-            'rules' => $rules,
-            'tag' => $tag,
-        ];
+        return RouteInfoValue::run()
+            ->setTag($tag)
+            ->setRules(collect($rules));
     }
 
-    private static function assembleOpenAPIRoute(?string $tag, array $rules): OpenAPIRouteValue
+    private static function assembleOpenAPIRoute(?string $tag, Collection $rules): OpenAPIRouteValue
     {
         $parameters = new Collection();
 
@@ -139,7 +140,7 @@ class SwaggerGeneratorService
         }
 
         return OpenAPIRouteValue::run()
-            ->setTags(collect($tag === null ? 'default' : $tag))
+            ->setTags(collect($tag === null ? self::DEFAULT_TAG : $tag))
             ->setParameters($parameters);
     }
 
@@ -168,6 +169,38 @@ class SwaggerGeneratorService
                 ->setUrl(config('swagger.base_url'))
                 ->setDescription('Server'), // TODO
         ]);
+    }
+
+    private function isIgnorable(string $uri): bool
+    {
+        $isValid = true;
+
+        foreach ($this->ignoreLike as $item) {
+            if (str_contains($uri, $item)) {
+                $isValid = false;
+            }
+        }
+
+        foreach ($this->ignoreNotLike as $item) {
+            if (!str_contains($uri, $item)) {
+                $isValid = false;
+            }
+        }
+
+        return $isValid;
+    }
+
+    private static function filterRouteMethods(array $methods): Collection
+    {
+        $extracted = new Collection();
+
+        foreach ($methods as $method) {
+            if (in_array($method, self::AVAILABLE_METHODS)) {
+                $extracted->push(strtolower($method));
+            }
+        }
+
+        return $extracted;
     }
 
 }
