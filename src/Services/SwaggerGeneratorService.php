@@ -2,6 +2,8 @@
 
 namespace Batyukovstudio\ApiatoSwaggerGenerator\Services;
 
+use Batyukovstudio\ApiatoSwaggerGenerator\Enums\ParametersLocationsEnum;
+use Batyukovstudio\ApiatoSwaggerGenerator\Services\RouteScannerService;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\OpenAPIInfoValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\OpenAPIServerValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\OpenAPIParametersValue;
@@ -11,22 +13,20 @@ use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPIValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\RouteInfoValue;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Http\Request;
-use Illuminate\Routing\Route as Route;
+use Illuminate\Routing\Route;
 use Illuminate\Support\Collection;
-use ReflectionMethod;
 
 
 class SwaggerGeneratorService
 {
-    private const AVAILABLE_METHODS = [
-        'GET', 'POST', 'PUT', 'PATCH', 'DELETE'
-    ];
-    private const DEFAULT_TAG = 'Default';
+    private const DEFAULT_TAG = 'default';
 
     private array $ignoreLike;
     private array $ignoreNotLike;
+    private RouteScannerService $scannerService;
 
-    public function __construct() {
+    public function __construct(RouteScannerService $scannerService) {
+        $this->scannerService = $scannerService;
         $this->ignoreLike = config('swagger.ignore.routes_like');
         $this->ignoreNotLike = config('swagger.ignore.routes_not_like');
     }
@@ -41,11 +41,11 @@ class SwaggerGeneratorService
 
         /** @var Route $route */
         foreach ($routes as $route) {
-            $routeInfo = self::extractRouteInfo($route);
+            $routeInfo = $this->scannerService->scanRoute($route);
 
-            $tag = $routeInfo->getTag();
+            $tag = $routeInfo->getApiatoContainerName();
             if ($tag !== null && $tags->contains($tag) === false) {
-                $tags->push($routeInfo->getTag());
+                $tags->push($tag);
             }
 
             $uri = $route->uri;
@@ -55,12 +55,11 @@ class SwaggerGeneratorService
             }
 
             if (!isset($paths[$route->uri])) {
-                $paths[$route->uri] = new Collection();
+                $paths[$uri] = new Collection();
             }
 
-            $routeMethods = self::filterRouteMethods($route->methods);
-            foreach ($routeMethods as $routeMethod) {
-                $paths[$uri][$routeMethod] = self::assembleOpenAPIRoute($tag, $routeInfo->getRules());
+            foreach ($routeInfo->getMethods() as $method) {
+                $paths[$uri][$method] = self::assembleOpenAPIRoute($routeInfo);
             }
         }
 
@@ -70,46 +69,11 @@ class SwaggerGeneratorService
             ->toArray();
     }
 
-    private static function extractRouteInfo(Route $route): RouteInfoValue
-    {
-        $tag = null;
-        $rules = [];
-        $action = $route->getAction();
-
-        if (isset($action['uses']) && is_string($action['uses'])) {  // существует валидный контроллер
-            [$controller, $method] = explode('@', $action['uses']);
-            if (class_exists($controller)) {
-                $reflection = new ReflectionMethod($controller, $method);
-
-                $controllerPathParts = explode('\\', $controller);
-                if (count($controllerPathParts) === 8) {  // Apiato controllers only
-                    if ($controllerPathParts[0] === 'App' &&
-                        $controllerPathParts[1] === 'Containers' &&
-                        $controllerPathParts[4] === 'UI' &&
-                        $controllerPathParts[5] === 'API' &&
-                        $controllerPathParts[6] === 'Controllers'
-                    ) {
-                        $tag = $controllerPathParts[3];
-
-                        foreach ($reflection->getParameters() as $parameter) {
-                            $className =  $parameter->getType()?->getName();
-                            if (is_subclass_of($className, Request::class)) {
-                                $rules = (new $className())->rules();
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        return RouteInfoValue::run()
-            ->setTag($tag)
-            ->setRules(collect($rules));
-    }
-
-    private static function assembleOpenAPIRoute(?string $tag, Collection $rules): OpenAPIRouteValue
+    private static function assembleOpenAPIRoute(RouteInfoValue $routeInfo): OpenAPIRouteValue
     {
         $parameters = new Collection();
+        $tag = $routeInfo->getApiatoContainerName();
+        $rules = $routeInfo->getRules();
 
         foreach ($rules as $ruleName => $rule) {
             if (is_array($rule)) {
@@ -188,19 +152,6 @@ class SwaggerGeneratorService
         }
 
         return $isValid;
-    }
-
-    private static function filterRouteMethods(array $methods): Collection
-    {
-        $extracted = new Collection();
-
-        foreach ($methods as $method) {
-            if (in_array($method, self::AVAILABLE_METHODS)) {
-                $extracted->push(strtolower($method));
-            }
-        }
-
-        return $extracted;
     }
 
 }

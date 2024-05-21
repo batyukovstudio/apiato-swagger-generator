@@ -7,17 +7,41 @@ use Illuminate\Support\Collection;
 
 class RouteInfoValue extends Value
 {
-    protected ?string $tag;
     protected Collection $rules;
+    protected Collection $methods;
+    protected ?string $scanningError = null;
+    protected ?string $apiatoContainerName = null;
 
-    public function getTag(): ?string
+    public function getMethods(): Collection
     {
-        return $this->tag;
+        return $this->method;
     }
 
-    public function setTag(?string $tag): self
+    public function setMethods(Collection $methods): self
     {
-        $this->tag = $tag;
+        $this->method = $methods;
+        return $this;
+    }
+
+    public function getScanningError(): ?string
+    {
+        return $this->scanningError;
+    }
+
+    public function setScanningError(?string $scanningError): self
+    {
+        $this->scanningError = $scanningError;
+        return $this;
+    }
+
+    public function getApiatoContainerName(): ?string
+    {
+        return $this->apiatoContainerName;
+    }
+
+    public function setApiatoContainerName(?string $apiatoContainerName): self
+    {
+        $this->apiatoContainerName = $apiatoContainerName;
         return $this;
     }
 

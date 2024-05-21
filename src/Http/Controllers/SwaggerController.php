@@ -21,7 +21,7 @@ class SwaggerController extends BaseController
 
     public function callback(): Response
     {
-        $documentation = Storage::json(config('swagger.storage_endpoint'));
+        $documentation = Storage::get(config('swagger.storage_endpoint'));
         return response($documentation);
     }
 
