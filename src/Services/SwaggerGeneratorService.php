@@ -3,22 +3,21 @@
 namespace Batyukovstudio\ApiatoSwaggerGenerator\Services;
 
 use Batyukovstudio\ApiatoSwaggerGenerator\Enums\ParametersLocationsEnum;
-use Batyukovstudio\ApiatoSwaggerGenerator\Services\RouteScannerService;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\OpenAPIInfoValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\OpenAPIServerValue;
-use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\OpenAPIParametersValue;
+use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\OpenAPIValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\OpenAPIRouteValue;
-use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\OpenAPISchemaValue;
-use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPIValue;
+use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\QueryParameters\OpenAPIParametersValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\RouteInfoValue;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
-use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Validator;
 
 
 class SwaggerGeneratorService
 {
+    private const REQUIRED = 'required';
     private const DEFAULT_TAG = 'default';
 
     private array $ignoreLike;
@@ -59,7 +58,7 @@ class SwaggerGeneratorService
             }
 
             foreach ($routeInfo->getMethods() as $method) {
-                $paths[$uri][$method] = self::assembleOpenAPIRoute($routeInfo);
+                $paths[$uri][$method] = self::generateOpenAPIRoute($method, $routeInfo);
             }
         }
 
@@ -69,43 +68,83 @@ class SwaggerGeneratorService
             ->toArray();
     }
 
-    private static function assembleOpenAPIRoute(RouteInfoValue $routeInfo): OpenAPIRouteValue
+    private static function generateOpenAPIRoute(string $method, RouteInfoValue $routeInfo): OpenAPIRouteValue
     {
-        $parameters = new Collection();
+        $parameters = null;
+        $requestBody = null;
+
         $tag = $routeInfo->getApiatoContainerName();
         $rules = $routeInfo->getRules();
+        $in = in_array(strtoupper($method), ParametersLocationsEnum::BODY_METHODS)
+            ? ParametersLocationsEnum::BODY
+            : ParametersLocationsEnum::QUERY;
 
-        foreach ($rules as $ruleName => $rule) {
-            if (is_array($rule)) {
-                $ruleParameters = $rule;
-                foreach ($ruleParameters as $key => $ruleParameter) {
-                    if (!is_string($ruleParameter)) {
-                        $ruleParameter = $ruleParameter::class; // TODO: стратегии обработки разных классов Rule
-                    }
-                    $ruleParameters[$key] = $ruleParameter;
-                }
-                $rule = implode('|', $ruleParameters);
-            } elseif (!is_string($rule)) {
-                $rule = $rule::class;
-            }
+        if ($in === ParametersLocationsEnum::QUERY) {
+            $parameters = self::generateOpenAPIQueryParameters($rules);
+        } else {
+            $requestBody = self::generateOpenAPIRequestBody();
+        }
 
-            $ruleFull = $rule;
-            $ruleParameters = array_flip(explode('|', $rule));
+        return OpenAPIRouteValue::run()
+            ->setParameters($parameters)
+            ->setRequestBody($requestBody)
+            ->setTags(collect($tag === null ? self::DEFAULT_TAG : $tag))
+            ->setParameters($parameters);
+    }
 
+    private static function generateOpenAPIQueryParameters(Collection $rules): Collection
+    {
+        $parameters = new Collection();
+
+        foreach ($rules as $ruleName => $ruleConditions) {
             $parameter = OpenAPIParametersValue::run()
                 ->setName($ruleName)
-                ->setDescription($ruleFull)
-                ->setRequired(isset($ruleParameters['required']))
+                ->setDescription(implode('|', $ruleConditions))
+                ->setRequired(isset($rule[self::REQUIRED]))
                 ->setDeprecated(false)
-                ->setIn('query')
-                ->setSchema(OpenAPISchemaValue::run()->setType('string'));
+                ->setIn(ParametersLocationsEnum::BODY)
+                ->setSchema(self::generateOpenAPIRequestSchema($ruleName, $ruleConditions));
 
             $parameters->push($parameter);
         }
 
-        return OpenAPIRouteValue::run()
-            ->setTags(collect($tag === null ? self::DEFAULT_TAG : $tag))
-            ->setParameters($parameters);
+        return $parameters;
+    }
+
+    private static function generateOpenAPIRequestBody(): array
+    {
+        return [
+            'description' => 'test description',
+            'content' => [
+                'application/json' => [
+                    'schema' => self::generateOpenAPIRequestSchema()
+                ],
+            ],
+        ];
+    }
+
+    private static function generateOpenAPIRequestSchema(string $name = null, array $ruleConditions = null): array
+    {
+        return [
+            'type' => 'object',
+            'properties' => [
+                'name' => [
+                    'type' => 'string',
+                ],
+                'age' => [
+                    'type' => 'string',
+                    'minimum' => 0,
+                ],
+                'email' => [
+                    'type' => 'string',
+                    'format' => 'email',
+                ],
+            ],
+            'required' => ['name', 'email'],
+        ];
+//        return OpenAPISchemaValue::run()
+//            ->setType('string')
+//            ->toArray();
     }
 
     private static function generateOpenAPI(): OpenAPIValue

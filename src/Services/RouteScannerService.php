@@ -6,11 +6,19 @@ use Batyukovstudio\ApiatoSwaggerGenerator\Enums\ParametersLocationsEnum;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\RouteInfoValue;
 use Illuminate\Support\Collection;
 use Illuminate\Routing\Route;
+use Illuminate\Http\Request;
 use ReflectionException;
 use ReflectionMethod;
 
 class RouteScannerService
 {
+    protected RequestRulesNormalizerService $rulesNormalizerService;
+
+    public function __construct(RequestRulesNormalizerService $rulesNormalizerService)
+    {
+        $this->rulesNormalizerService = $rulesNormalizerService;
+    }
+
     public function scanRoute(Route $route): RouteInfoValue
     {
         $rules = new Collection();
@@ -73,7 +81,7 @@ class RouteScannerService
 
     private function extractApiatoContainerName(ReflectionMethod $reflection): ?string
     {
-        $containerName = false;
+        $containerName = null;
 
         $controllerPathParts = explode('\\', $reflection->class);
         if (count($controllerPathParts) === 8) {
@@ -101,7 +109,8 @@ class RouteScannerService
         foreach ($reflection->getParameters() as $parameter) {
             $className =  $parameter->getType()?->getName();
             if (is_subclass_of($className, Request::class)) {
-                $rules = collect((new $className())->rules());
+                $scannedRules = (new $className())->rules();
+                $rules = $this->rulesNormalizerService->normalize($scannedRules);
             }
         }
 

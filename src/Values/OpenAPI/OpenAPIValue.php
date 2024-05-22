@@ -1,9 +1,8 @@
 <?php
 
-namespace Batyukovstudio\ApiatoSwaggerGenerator\Values;
+namespace Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI;
 
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\Abstract\Value;
-use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\OpenAPIInfoValue;
 use Illuminate\Support\Collection;
 
 class OpenAPIValue extends Value

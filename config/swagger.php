@@ -2,12 +2,12 @@
 
 return [
 
-    'base_url' => env('APP_URL', 'http://127.0.0.1:8000/') . env('API_PREFIX', '/api/'),
+    'base_url' => env('APP_URL', 'http://127.0.0.1:8000/'),
 
 //    'endpoint' => env('SWAGGER_ENDPOINT', 'swagger'),
 
     'openapi' => [
-        'version' => '3.0.0',
+        'version' => '3.1.0',
 
         'info' => [
             'title' => env('APP_NAME', 'Application API Documentation'),

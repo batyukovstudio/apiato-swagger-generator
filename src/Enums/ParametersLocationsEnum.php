@@ -5,7 +5,7 @@ namespace Batyukovstudio\ApiatoSwaggerGenerator\Enums;
 class ParametersLocationsEnum
 {
     const QUERY = 'query';
-    const BODY = 'path';
+    const BODY = 'body';
     const HEADER = 'header';
     const COOKIE = 'cookie';
 

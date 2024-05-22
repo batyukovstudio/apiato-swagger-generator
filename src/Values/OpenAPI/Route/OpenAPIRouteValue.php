@@ -7,18 +7,30 @@ use Illuminate\Support\Collection;
 
 class OpenAPIRouteValue extends Value
 {
-    protected Collection $parameters;
+    protected ?array $requestBody = null;
+    protected ?Collection $parameters = null;
     protected ?string $summary = null;
     protected ?string $description = null;
     protected ?Collection $responses = null;
     protected ?Collection $tags = null;
 
-    public function getParameters(): Collection
+    public function getRequestBody(): ?array
+    {
+        return $this->requestBody;
+    }
+
+    public function setRequestBody(?array $requestBody): self
+    {
+        $this->requestBody = $requestBody;
+        return $this;
+    }
+
+    public function getParameters(): ?Collection
     {
         return $this->parameters;
     }
 
-    public function setParameters(Collection $parameters): self
+    public function setParameters(?Collection $parameters): self
     {
         $this->parameters = $parameters;
         return $this;

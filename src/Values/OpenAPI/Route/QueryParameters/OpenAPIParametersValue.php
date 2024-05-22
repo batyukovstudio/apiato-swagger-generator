@@ -1,6 +1,6 @@
 <?php
 
-namespace Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route;
+namespace Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\QueryParameters;
 
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\Abstract\Value;
 use Illuminate\Support\Collection;
@@ -46,7 +46,7 @@ class OpenAPIParametersValue extends Value
      * likely to be removed in a later revision.
      */
     protected ?bool $allowEmptyValue = null;
-    protected ?OpenAPISchemaValue $schema = null;
+    protected ?array $schema = null;
 //    protected $style = null; // todo if needed
 //    protected $explode = null; // todo if needed
 //    protected $allowReserved = null; // todo if needed
@@ -120,12 +120,12 @@ class OpenAPIParametersValue extends Value
         return $this;
     }
 
-    public function getSchema(): ?OpenAPISchemaValue
+    public function getSchema(): ?array
     {
         return $this->schema;
     }
 
-    public function setSchema(?OpenAPISchemaValue $schema): self
+    public function setSchema(?array $schema): self
     {
         $this->schema = $schema;
         return $this;

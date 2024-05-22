@@ -2,6 +2,7 @@
 
 namespace Batyukovstudio\ApiatoSwaggerGenerator\Http\Controllers;
 
+use Batyukovstudio\ApiatoSwaggerGenerator\Services\SwaggerGeneratorService;
 use Illuminate\View\View;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Storage;
@@ -19,8 +20,10 @@ class SwaggerController extends BaseController
         return view('swagger::index', compact('urlToDocs'));
     }
 
-    public function callback(): Response
+    public function callback(SwaggerGeneratorService $swaggerGeneratorService): Response
     {
+        return response(json_encode($swaggerGeneratorService->generate()));
+//        dd($swaggerGeneratorService->generate());
         $documentation = Storage::get(config('swagger.storage_endpoint'));
         return response($documentation);
     }
