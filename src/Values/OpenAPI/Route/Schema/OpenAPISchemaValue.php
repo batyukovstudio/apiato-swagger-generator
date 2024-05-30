@@ -19,7 +19,7 @@ class OpenAPISchemaValue extends Value
         $required = new Collection();
 
         foreach ($rules as $ruleName => $ruleConditions) {
-            $properties[$ruleName] = OpenAPISchemaParemeterValue::build($ruleConditions);
+            $properties[$ruleName] = OpenAPISchemaParameterValue::build($ruleConditions);
 
             if (in_array(self::REQUIRED, $ruleConditions)) {
                 $required->push($ruleName);

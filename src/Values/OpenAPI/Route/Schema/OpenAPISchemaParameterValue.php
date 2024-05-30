@@ -3,12 +3,13 @@
 namespace Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\Schema;
 
 use Batyukovstudio\ApiatoSwaggerGenerator\Contracts\NotNullFilterable;
+use Batyukovstudio\ApiatoSwaggerGenerator\Enums\SchemaParameterFormatsEnum;
 use Batyukovstudio\ApiatoSwaggerGenerator\Enums\SchemaParameterTypesEnum;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\Abstract\Value;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
-class OpenAPISchemaParemeterValue extends Value implements NotNullFilterable
+class OpenAPISchemaParameterValue extends Value implements NotNullFilterable
 {
     /**
      * https://opis.io/json-schema/2.x/string.html
@@ -36,15 +37,19 @@ class OpenAPISchemaParemeterValue extends Value implements NotNullFilterable
         'array' => SchemaParameterTypesEnum::ARRAY,
     ];
 
-    private const DIGITS = 'digits';
-    private const MIN_DIGITS = 'min_digits';
-    private const MAX_DIGITS = 'max_digits';
-    private const MIN = 'min';
-    private const MAX = 'max';
+    private const DIGITS_TYPE = 'digits';
+    private const MIN_DIGITS_TYPE = 'min_digits';
+    private const MAX_DIGITS_TYPE = 'max_digits';
+    private const MIN_TYPE = 'min';
+    private const MAX_TYPE = 'max';
+    private const DATE_FORMAT = 'date';
+    private const TIME_FORMAT = 'time';
+    private const REGEX_FORMAT = 'regex';
 
     public static function build(array $ruleConditions): self
     {
         $type = null;
+        $format = null;
         $minLength = null;
         $maxLength = null;
         $min = null;
@@ -59,30 +64,42 @@ class OpenAPISchemaParemeterValue extends Value implements NotNullFilterable
                 $type = SchemaParameterTypesEnum::STRING;
             }
 
+            if (Str::contains($ruleCondition, self::DATE_FORMAT)) {
+                $format = SchemaParameterFormatsEnum::DATE;
+            }
+
+            if (Str::contains($ruleCondition, self::TIME_FORMAT)) {
+                $format = SchemaParameterFormatsEnum::TIME;
+            }
+
+//            if (Str::contains($ruleCondition, self::REGEX_FORMAT)) {
+//                $format = SchemaParameterFormatsEnum::REGEX;
+//            } TODO: разобраться как указать конкретный regex
+
             if (Str::contains($ruleCondition, [
-                self::DIGITS . ':',
-                self::MIN_DIGITS . ':',
-                self::MAX_DIGITS . ':',
-                self::MIN . ':',
-                self::MAX . ':',
+                self::DIGITS_TYPE . ':',
+                self::MIN_DIGITS_TYPE . ':',
+                self::MAX_DIGITS_TYPE . ':',
+                self::MIN_TYPE . ':',
+                self::MAX_TYPE . ':',
             ])) {
                 [$alias, $value] = explode(':', $ruleCondition);
 
                 switch ($alias) {
-                    case self::DIGITS:
+                    case self::DIGITS_TYPE:
                         $min = $value;
                         $max = $value;
                         break;
 
-                    case self::MIN_DIGITS:
+                    case self::MIN_DIGITS_TYPE:
                         $minLength = $value;
                         break;
 
-                    case self::MAX_DIGITS:
+                    case self::MAX_DIGITS_TYPE:
                         $maxLength = $value;
                         break;
 
-                    case self::MIN:
+                    case self::MIN_TYPE:
                         if ($type === SchemaParameterTypesEnum::STRING) {
                             $minLength = $value;
                         } elseif (
@@ -93,7 +110,7 @@ class OpenAPISchemaParemeterValue extends Value implements NotNullFilterable
                         }
                         break;
 
-                    case self::MAX:
+                    case self::MAX_TYPE:
                         if ($type === SchemaParameterTypesEnum::STRING) {
                             $maxLength = $value;
                         } elseif (
@@ -110,7 +127,8 @@ class OpenAPISchemaParemeterValue extends Value implements NotNullFilterable
 
         return self::run()
             ->setType($type)
-//            ->setDescription('test')
+            ->setFormat($format)
+            ->setDescription(implode(', ', $ruleConditions))
 //            ->setExample('test')
             ->setMinimum($min)
             ->setMaximum($max)

@@ -9,6 +9,7 @@ use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\OpenAPIValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\OpenAPIRouteValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\QueryParameters\OpenAPIParametersValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\Schema\OpenAPIContentValue;
+use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\Schema\OpenAPISchemaParameterValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\Schema\OpenAPISchemaValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\RouteInfoValue;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
@@ -26,8 +27,8 @@ class SwaggerGeneratorService
      * Form-like editor is not available for JSON payloads. Here's the corresponding feature request:
      * https://github.com/swagger-api/swagger-ui/issues/2771
      */
-    private const APPLICATION_JSON = 'application/x-www-form-urlencoded';
-//    private const APPLICATION_JSON = 'application/json';
+//    private const APPLICATION_JSON = 'application/x-www-form-urlencoded';
+    private const APPLICATION_JSON = 'application/json';
 
     private array $ignoreLike;
     private array $ignoreNotLike;
@@ -94,13 +95,18 @@ class SwaggerGeneratorService
             $requestBody = self::generateOpenAPIRequestBody($rules);
         }
 
-        $responses = self::generateOpenAPIResponses($rules);
+//        $responses = self::generateOpenAPIResponses($rules);
+        $summary = null !== $routeInfo->getScanningError()
+            ? 'GENERATION ERROR OCCURED: ' . $routeInfo->getScanningError()
+            : null;
 
         return OpenAPIRouteValue::run()
+            ->setSummary($summary)
             ->setTags(collect($tag === null ? self::DEFAULT_TAG : $tag))
             ->setParameters($parameters)
             ->setRequestBody($requestBody)
-            ->setResponses($responses);
+//            ->setResponses($responses)
+            ->setResponses(null);
     }
 
     private static function generateOpenAPIQueryParameters(Collection $rules): Collection
@@ -110,11 +116,11 @@ class SwaggerGeneratorService
         foreach ($rules as $ruleName => $ruleConditions) {
             $parameter = OpenAPIParametersValue::run()
                 ->setName($ruleName)
-                ->setDescription(implode('|', $ruleConditions))
+                ->setDescription(implode(', ', $ruleConditions))
                 ->setRequired(isset($rule[self::REQUIRED]))
                 ->setDeprecated(false) // TODO
-                ->setIn(ParametersLocationsEnum::BODY);
-//                ->setSchema(self::generateOpenAPIRequestSchema($rules));
+                ->setIn(ParametersLocationsEnum::QUERY)
+                ->setSchema(OpenAPISchemaParameterValue::build($ruleConditions)->toArray());
 
             $parameters->push($parameter);
         }
