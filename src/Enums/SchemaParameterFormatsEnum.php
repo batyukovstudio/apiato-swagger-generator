@@ -4,7 +4,7 @@ namespace Batyukovstudio\ApiatoSwaggerGenerator\Enums;
 
 class SchemaParameterFormatsEnum
 {
-    const DATE = 'data';
+    const DATE = 'date';
     const TIME = 'time';
     const DATE_TIME = 'date-time';
     const DURATION = 'duration';
