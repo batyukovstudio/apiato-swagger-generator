@@ -7,19 +7,30 @@ use Illuminate\Support\Collection;
 
 class OpenAPISchemaValue extends Value
 {
-    /**
-     * https://opis.io/json-schema/2.x/string.html
-     */
-    protected string $type;
-    protected ?string $format = null;
-    protected ?Collection $enum = null;
-    protected ?int $minimum;
-    protected ?int $maximum;
-    protected ?int $minLength;
-    protected ?int $maxLength;
-    protected ?string $pattern;
-    protected ?string $contentEncoding;
-    protected string|int|null $default = null;
+//    protected ?string $type;
+    protected Collection $properties;
+    protected Collection $required;
+
+    private const REQUIRED = 'required';
+
+    public static function build(Collection $rules): self
+    {
+        $properties = new Collection();
+        $required = new Collection();
+
+        foreach ($rules as $ruleName => $ruleConditions) {
+            $properties[$ruleName] = OpenAPISchemaParemeterValue::build($ruleConditions);
+
+            if (in_array(self::REQUIRED, $ruleConditions)) {
+                $required->push($ruleName);
+            }
+        }
+
+        return self::run()
+//            ->setType('object')
+            ->setProperties($properties)
+            ->setRequired($required);
+    }
 
     public function getType(): string
     {
@@ -32,102 +43,25 @@ class OpenAPISchemaValue extends Value
         return $this;
     }
 
-    public function getFormat(): ?string
+    public function getProperties(): Collection
     {
-        return $this->format;
+        return $this->properties;
     }
 
-    public function setFormat(?string $format): self
+    public function setProperties(Collection $properties): self
     {
-        $this->format = $format;
+        $this->properties = $properties;
         return $this;
     }
 
-    public function getEnum(): ?Collection
+    public function getRequired(): Collection
     {
-        return $this->enum;
+        return $this->required;
     }
 
-    public function setEnum(?Collection $enum): self
+    public function setRequired(Collection $required): self
     {
-        $this->enum = $enum;
-        return $this;
-    }
-
-    public function getMinimum(): ?int
-    {
-        return $this->minimum;
-    }
-
-    public function setMinimum(?int $minimum): self
-    {
-        $this->minimum = $minimum;
-        return $this;
-    }
-
-    public function getMaximum(): ?int
-    {
-        return $this->maximum;
-    }
-
-    public function setMaximum(?int $maximum): self
-    {
-        $this->maximum = $maximum;
-        return $this;
-    }
-
-    public function getMinLength(): ?int
-    {
-        return $this->minLength;
-    }
-
-    public function setMinLength(?int $minLength): self
-    {
-        $this->minLength = $minLength;
-        return $this;
-    }
-
-    public function getMaxLength(): ?int
-    {
-        return $this->maxLength;
-    }
-
-    public function setMaxLength(?int $maxLength): self
-    {
-        $this->maxLength = $maxLength;
-        return $this;
-    }
-
-    public function getPattern(): ?string
-    {
-        return $this->pattern;
-    }
-
-    public function setPattern(?string $pattern): self
-    {
-        $this->pattern = $pattern;
-        return $this;
-    }
-
-    public function getContentEncoding(): ?string
-    {
-        return $this->contentEncoding;
-    }
-
-    public function setContentEncoding(?string $contentEncoding): self
-    {
-        $this->contentEncoding = $contentEncoding;
-        return $this;
-    }
-
-    public function getDefault(): int|string|null
-    {
-        return $this->default;
-    }
-
-    public function setDefault(int|string|null $default): self
-    {
-        $this->default = $default;
+        $this->required = $required;
         return $this;
     }
 

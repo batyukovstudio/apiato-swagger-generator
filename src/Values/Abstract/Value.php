@@ -2,7 +2,9 @@
 
 namespace Batyukovstudio\ApiatoSwaggerGenerator\Values\Abstract;
 
+use Batyukovstudio\ApiatoSwaggerGenerator\Contracts\NotNullFilterable;
 use Illuminate\Contracts\Support\Arrayable;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 abstract class Value implements Arrayable
@@ -25,16 +27,20 @@ abstract class Value implements Arrayable
                 $value = $value->toArray();
             } elseif (is_object($value) && property_exists($value, 'value')) {
                 $value = $value->value;
-            } elseif (is_array($value)) {
+            } elseif (is_iterable($value)) {
                 foreach ($value as $valueItemKey => $valueItem) {
-                    if ($valueItem instanceof Arrayable) {
-                        $value[$valueItemKey] = $valueItem->toArray();
+                    if ($valueItem instanceof Arrayable){
+                        $valueItem = $valueItemKey->toArray();
                     }
+                    $value[$valueItemKey] = $valueItem;
                 }
             }
 
             $result[$name] = $value;
-//            $result[Str::snake((string)$name)] = $value;
+        }
+
+        if ($this instanceof NotNullFilterable) {
+            $result = array_filter_not_null($result);
         }
 
         return $result;

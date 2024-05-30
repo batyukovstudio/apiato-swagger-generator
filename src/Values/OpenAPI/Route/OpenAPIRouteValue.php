@@ -2,16 +2,17 @@
 
 namespace Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route;
 
+use Batyukovstudio\ApiatoSwaggerGenerator\Contracts\NotNullFilterable;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\Abstract\Value;
 use Illuminate\Support\Collection;
 
-class OpenAPIRouteValue extends Value
+class OpenAPIRouteValue extends Value implements NotNullFilterable
 {
     protected ?array $requestBody = null;
     protected ?Collection $parameters = null;
     protected ?string $summary = null;
     protected ?string $description = null;
-    protected ?Collection $responses = null;
+    protected ?array $responses = null;
     protected ?Collection $tags = null;
 
     public function getRequestBody(): ?array
@@ -58,12 +59,12 @@ class OpenAPIRouteValue extends Value
         return $this;
     }
 
-    public function getResponses(): ?Collection
+    public function getResponses(): ?array
     {
         return $this->responses;
     }
 
-    public function setResponses(?Collection $responses): self
+    public function setResponses(?array $responses): self
     {
         $this->responses = $responses;
         return $this;

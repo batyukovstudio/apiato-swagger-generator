@@ -4,13 +4,13 @@ namespace Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\RequestBody
 
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\Abstract\Value;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\OpenAPIContentValue;
-use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\Schema\OpenAPISchemaValue;
+use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\Schema\OpenAPISchemaParemeterValue;
 use Illuminate\Support\Collection;
 
 class OpenAPIRequestBodyValue extends Value
 {
     protected bool $required;
-    protected OpenAPISchemaValue $schema;
+    protected OpenAPISchemaParemeterValue $schema;
 
     public function isRequired(): bool
     {
@@ -23,12 +23,12 @@ class OpenAPIRequestBodyValue extends Value
         return $this;
     }
 
-    public function getSchema(): OpenAPISchemaValue
+    public function getSchema(): OpenAPISchemaParemeterValue
     {
         return $this->schema;
     }
 
-    public function setSchema(OpenAPISchemaValue $schema): self
+    public function setSchema(OpenAPISchemaParemeterValue $schema): self
     {
         $this->schema = $schema;
         return $this;

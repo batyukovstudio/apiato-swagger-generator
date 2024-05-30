@@ -8,17 +8,26 @@ use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\OpenAPIServerValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\OpenAPIValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\OpenAPIRouteValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\QueryParameters\OpenAPIParametersValue;
+use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\Schema\OpenAPIContentValue;
+use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\Schema\OpenAPISchemaValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\RouteInfoValue;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
-use Illuminate\Routing\Route;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Collection;
+use Illuminate\Routing\Route;
 
 
 class SwaggerGeneratorService
 {
     private const REQUIRED = 'required';
     private const DEFAULT_TAG = 'default';
+
+    /**
+     * Form-like editor is not available for JSON payloads. Here's the corresponding feature request:
+     * https://github.com/swagger-api/swagger-ui/issues/2771
+     */
+    private const APPLICATION_JSON = 'application/x-www-form-urlencoded';
+//    private const APPLICATION_JSON = 'application/json';
 
     private array $ignoreLike;
     private array $ignoreNotLike;
@@ -82,14 +91,16 @@ class SwaggerGeneratorService
         if ($in === ParametersLocationsEnum::QUERY) {
             $parameters = self::generateOpenAPIQueryParameters($rules);
         } else {
-            $requestBody = self::generateOpenAPIRequestBody();
+            $requestBody = self::generateOpenAPIRequestBody($rules);
         }
 
+        $responses = self::generateOpenAPIResponses($rules);
+
         return OpenAPIRouteValue::run()
+            ->setTags(collect($tag === null ? self::DEFAULT_TAG : $tag))
             ->setParameters($parameters)
             ->setRequestBody($requestBody)
-            ->setTags(collect($tag === null ? self::DEFAULT_TAG : $tag))
-            ->setParameters($parameters);
+            ->setResponses($responses);
     }
 
     private static function generateOpenAPIQueryParameters(Collection $rules): Collection
@@ -101,9 +112,9 @@ class SwaggerGeneratorService
                 ->setName($ruleName)
                 ->setDescription(implode('|', $ruleConditions))
                 ->setRequired(isset($rule[self::REQUIRED]))
-                ->setDeprecated(false)
-                ->setIn(ParametersLocationsEnum::BODY)
-                ->setSchema(self::generateOpenAPIRequestSchema($ruleName, $ruleConditions));
+                ->setDeprecated(false) // TODO
+                ->setIn(ParametersLocationsEnum::BODY);
+//                ->setSchema(self::generateOpenAPIRequestSchema($rules));
 
             $parameters->push($parameter);
         }
@@ -111,45 +122,43 @@ class SwaggerGeneratorService
         return $parameters;
     }
 
-    private static function generateOpenAPIRequestBody(): array
+    private static function generateOpenAPIRequestBody(Collection $rules): array
     {
+        $content = OpenAPIContentValue::run()
+            ->setType(self::APPLICATION_JSON)
+            ->setSchema(OpenAPISchemaValue::build($rules));
+
         return [
-            'description' => 'test description',
             'content' => [
-                'application/json' => [
-                    'schema' => self::generateOpenAPIRequestSchema()
+                $content->getType() => [
+                    'schema' => $content->getSchema()->toArray(),
                 ],
             ],
         ];
     }
 
-    private static function generateOpenAPIRequestSchema(string $name = null, array $ruleConditions = null): array
+    private static function generateOpenAPIResponses(Collection $rules): array
     {
+        $content = OpenAPIContentValue::run()
+            ->setType(self::APPLICATION_JSON)
+            ->setSchema(OpenAPISchemaValue::build($rules));
+
         return [
-            'type' => 'object',
-            'properties' => [
-                'name' => [
-                    'type' => 'string',
+            '200' => [
+                'description' => 'test',
+                'content' => [
+                    $content->getType() => [
+                        'schema' => $content->getSchema()->toArray(),
+                    ],
                 ],
-                'age' => [
-                    'type' => 'string',
-                    'minimum' => 0,
-                ],
-                'email' => [
-                    'type' => 'string',
-                    'format' => 'email',
-                ],
-            ],
-            'required' => ['name', 'email'],
+            ]
         ];
-//        return OpenAPISchemaValue::run()
-//            ->setType('string')
-//            ->toArray();
     }
 
     private static function generateOpenAPI(): OpenAPIValue
     {
         return OpenAPIValue::run()
+//            ->setOpenapi('3.23.8')
             ->setOpenapi(config('swagger.openapi.version'))
             ->setInfo(self::generateOpenAPIInfo())
             ->setServers(self::generateOpenAPIServers())

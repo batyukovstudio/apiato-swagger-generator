@@ -2,7 +2,7 @@
 
 namespace Batyukovstudio\ApiatoSwaggerGenerator\Enums;
 
-class SchemaArgumentFormatsEnum
+class SchemaParameterFormatsEnum
 {
     const DATE = 'data';
     const TIME = 'time';

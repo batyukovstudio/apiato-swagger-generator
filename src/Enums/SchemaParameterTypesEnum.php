@@ -2,7 +2,7 @@
 
 namespace Batyukovstudio\ApiatoSwaggerGenerator\Enums;
 
-class SchemaArgumentTypesEnum
+class SchemaParameterTypesEnum
 {
     const STRING = 'string';
     const NUMBER = 'number';
