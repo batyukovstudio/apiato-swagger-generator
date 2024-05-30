@@ -112,12 +112,11 @@ class SwaggerGeneratorService
     private static function generateOpenAPIQueryParameters(Collection $rules): Collection
     {
         $parameters = new Collection();
-
         foreach ($rules as $ruleName => $ruleConditions) {
             $parameter = OpenAPIParametersValue::run()
                 ->setName($ruleName)
                 ->setDescription(implode(', ', $ruleConditions))
-                ->setRequired(isset($rule[self::REQUIRED]))
+                ->setRequired(in_array(self::REQUIRED, $ruleConditions))
                 ->setDeprecated(false) // TODO
                 ->setIn(ParametersLocationsEnum::QUERY)
                 ->setSchema(OpenAPISchemaParameterValue::build($ruleConditions)->toArray());
