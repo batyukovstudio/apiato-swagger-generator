@@ -14,12 +14,12 @@ class RouteInfoValue extends Value
 
     public function getMethods(): Collection
     {
-        return $this->method;
+        return $this->methods;
     }
 
     public function setMethods(Collection $methods): self
     {
-        $this->method = $methods;
+        $this->methods = $methods;
         return $this;
     }
 

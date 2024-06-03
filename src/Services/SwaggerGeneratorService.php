@@ -16,6 +16,7 @@ use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Collection;
 use Illuminate\Routing\Route;
+use Illuminate\Support\Str;
 
 
 class SwaggerGeneratorService
@@ -29,6 +30,7 @@ class SwaggerGeneratorService
      */
 //    private const APPLICATION_JSON = 'application/x-www-form-urlencoded';
     private const APPLICATION_JSON = 'application/json';
+    private const METHODS_ORDER = ['get', 'post', 'put', 'patch', 'delete'];
 
     private array $ignoreLike;
     private array $ignoreNotLike;
@@ -67,8 +69,13 @@ class SwaggerGeneratorService
                 $paths[$uri] = new Collection();
             }
 
-            foreach ($routeInfo->getMethods() as $method) {
-                $paths[$uri][$method] = self::generateOpenAPIRoute($method, $routeInfo);
+            /** @var Collection $routeMethods */
+            $routeMethods = $routeInfo->getMethods();
+
+            foreach (self::METHODS_ORDER as $method) {
+                if ($routeMethods->contains($method)) {
+                    $paths[$uri][$method] = self::generateOpenAPIRoute($method, $routeInfo);
+                }
             }
         }
 
@@ -109,9 +116,10 @@ class SwaggerGeneratorService
             ->setResponses(null);
     }
 
-    private static function generateOpenAPIQueryParameters(Collection $rules): Collection
+    private static function generateOpenAPIQueryParameters(Collection $rules): ?Collection
     {
         $parameters = new Collection();
+
         foreach ($rules as $ruleName => $ruleConditions) {
             $parameter = OpenAPIParametersValue::run()
                 ->setName($ruleName)
@@ -124,22 +132,33 @@ class SwaggerGeneratorService
             $parameters->push($parameter);
         }
 
+        if ($parameters->isEmpty()) {
+            $parameters = null;
+        }
+
         return $parameters;
     }
 
-    private static function generateOpenAPIRequestBody(Collection $rules): array
+    private static function generateOpenAPIRequestBody(Collection $rules): ?array
     {
-        $content = OpenAPIContentValue::run()
-            ->setType(self::APPLICATION_JSON)
-            ->setSchema(OpenAPISchemaValue::build($rules));
+        $result = null;
 
-        return [
-            'content' => [
-                $content->getType() => [
-                    'schema' => $content->getSchema()->toArray(),
+        $schema = OpenAPISchemaValue::build($rules);
+        if (false === $schema->getProperties()->isEmpty()) {
+            $content = OpenAPIContentValue::run()
+                ->setType(self::APPLICATION_JSON)
+                ->setSchema($schema);
+
+            $result = [
+                'content' => [
+                    $content->getType() => [
+                        'schema' => $content->getSchema()->toArray(),
+                    ],
                 ],
-            ],
-        ];
+            ];
+        }
+
+        return $result;
     }
 
     private static function generateOpenAPIResponses(Collection $rules): array
