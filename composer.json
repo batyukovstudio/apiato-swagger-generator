@@ -1,21 +1,16 @@
 {
     "name": "batyukovstudio/apiato-swagger-generator",
-    "description": "Swagger docs generator for Apiato API",
+    "description": "Swagger docs generator for Apiato",
     "type": "library",
     "license": "MIT",
     "authors": [
         {
             "name": "batyukovstudio.com",
-            "email": "leskov@batyukovstudio.com"
+            "email": "batyukovstudio@gmail.com"
         }
     ],
     "require": {
-        "php": ">=8.1",
-        "doctrine/dbal": "*",
-        "phpdocumentor/reflection-docblock": "^5.2"
-    },
-    "require-dev": {
-        "laravel/passport": "^10.0"
+        "php": ">=8.1"
     },
     "autoload": {
         "files": [
