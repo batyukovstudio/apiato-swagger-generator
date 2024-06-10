@@ -2,12 +2,13 @@
 
 return [
 
+    'storage_driver' => 'local',
+    'storage_path' => storage_path('swagger'),
+    'documentation_filename' => 'documentation.json',
+
     'base_url' => env('APP_URL', 'http://127.0.0.1:8000/'),
 
-//    'endpoint' => env('SWAGGER_ENDPOINT', 'swagger'),
-
     'openapi' => [
-//        'version' => '3.0.0',
         'version' => '3.1.0',
 
         'info' => [

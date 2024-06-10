@@ -18,6 +18,6 @@ class GenerateSwaggerDocumentation extends Command
     public function handle(SwaggerGeneratorService $swaggerGeneratorService): void
     {
         $documentation = $swaggerGeneratorService->generate();
-        Storage::put(config('swagger.storage_endpoint'), json_encode($documentation));
+        Storage::disk('swagger')->put(config('swagger.documentation_filename'), json_encode($documentation));
     }
 }

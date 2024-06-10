@@ -14,17 +14,23 @@ use Batyukovstudio\ApiatoSwaggerGenerator\Commands\MakeSwaggerSchemaBuilder;
  * Class SwaggerServiceProvider
  * @package Batyukovstudio\ApiatoSwaggerGenerator
  */
-class SwaggerServiceProvider extends ServiceProvider {
+class SwaggerServiceProvider extends ServiceProvider
+{
 
     /**
      * @inheritDoc
      * @return void
      */
-    public function boot(): void {
+    public function boot(): void
+    {
+        config()->set('filesystems.disks.swagger', [
+            'driver' => config('swagger.storage_driver'),
+            'root' => config('swagger.storage_path'),
+        ]);
+
         if ($this->app->runningInConsole()) {
             $this->commands([
                 GenerateSwaggerDocumentation::class,
-//                MakeSwaggerSchemaBuilder::class
             ]);
         }
 
@@ -49,100 +55,8 @@ class SwaggerServiceProvider extends ServiceProvider {
             $source, 'swagger'
         );
 
-//        $this->loadValidationRules();
-
-//        try {
-//            DB::connection()
-//                ->getDoctrineConnection()
-//                ->getDatabasePlatform()
-//                ->registerDoctrineTypeMapping('enum', 'string');
-//        } catch (\Exception $e) {
-//            Log::error('[Batyukovstudio\ApiatoSwaggerGenerator] Could not register enum type as string because of connexion error.');
-//        }
-
         if (file_exists($file = __DIR__ . '/helpers.php')) {
             require $file;
         }
     }
-
-//    /**
-//     * Load custom validation rules
-//     * @return void
-//     */
-//    private function loadValidationRules(): void {
-//        Validator::extend('swagger_default', function(string $attribute, $value, array $parameters, Validator $validator) {
-//            return true;
-//        });
-//        Validator::extend('swagger_min', function(string $attribute, $value, array $parameters, Validator $validator) {
-//            [$min, $fail] = $this->parseParameters($parameters);
-//            $valueType = $this->getTypeFromString((string) $value);
-//            settype($min, $valueType);
-//            if ($fail) {
-//                return $value >= $min;
-//            }
-//            return true;
-//        });
-//        Validator::extend('swagger_max', function(string $attribute, $value, array $parameters, Validator $validator) {
-//            [$max, $fail] = $this->parseParameters($parameters);
-//            $valueType = $this->getTypeFromString((string) $value);
-//            settype($max, $valueType);
-//            if ($fail) {
-//                return $value <= $max;
-//            }
-//            return true;
-//        });
-//    }
-
-//    /**
-//     * Get variable type from string
-//     * @param string $string
-//     * @return string
-//     */
-//    private function getTypeFromString(string $string): string {
-//        return gettype($this->guessVariableType($string));
-//    }
-//
-//    /**
-//     * Guess variable type
-//     * @param string $string
-//     * @return bool|float|int|string
-//     */
-//    private function guessVariableType(string $string) {
-//        $string = trim($string);
-//        if (empty($string)) {
-//            return '';
-//        }
-//        if (!preg_match('/[^0-9.]+/', $string)) {
-//            if (preg_match('/[.]+/', $string)) {
-//                return (double) $string;
-//            }
-//            return (integer) $string;
-//        }
-//        if ($string === 'true') {
-//            return (boolean) true;
-//        }
-//        if ($string === 'false') {
-//            return (boolean) false;
-//        }
-//        return (string) $string;
-//    }
-//
-//    /**
-//     * Parse parameter
-//     * @param array $parameters
-//     * @return array
-//     */
-//    private function parseParameters(array $parameters): array {
-//        $parameter = Arr::first($parameters);
-//        $exploded = explode(':', $parameter);
-//        $value = $exploded[0];
-//        if (\count($exploded) === 2) {
-//            return [
-//                $value,
-//                isset($exploded[1]) ? $exploded[1] === 'fail' : false
-//            ];
-//        }
-//        return [$value, false];
-//    }
-
 }
