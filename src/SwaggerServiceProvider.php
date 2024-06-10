@@ -23,11 +23,6 @@ class SwaggerServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        config()->set('filesystems.disks.swagger', [
-            'driver' => config('swagger.storage_driver'),
-            'root' => config('swagger.storage_path'),
-        ]);
-
         if ($this->app->runningInConsole()) {
             $this->commands([
                 GenerateSwaggerDocumentation::class,
@@ -58,5 +53,10 @@ class SwaggerServiceProvider extends ServiceProvider
         if (file_exists($file = __DIR__ . '/helpers.php')) {
             require $file;
         }
+
+        config()->set('filesystems.disks.swagger', [
+            'driver' => config('swagger.storage_driver'),
+            'root' => config('swagger.storage_path'),
+        ]);
     }
 }
