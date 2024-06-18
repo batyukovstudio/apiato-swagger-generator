@@ -61,7 +61,7 @@ class SwaggerGeneratorService
 
             $uri = $route->uri;
 
-            if ($this->isIgnorable($uri) === false) {
+            if ($this->isIgnorable($uri)) {
                 continue;
             }
 
@@ -209,21 +209,25 @@ class SwaggerGeneratorService
 
     private function isIgnorable(string $uri): bool
     {
-        $isValid = true;
+        $isIgnorable = false;
 
         foreach ($this->ignoreLike as $item) {
             if (str_contains($uri, $item)) {
-                $isValid = false;
+                $isIgnorable = true;
+                break;
             }
         }
 
-        foreach ($this->ignoreNotLike as $item) {
-            if (!str_contains($uri, $item)) {
-                $isValid = false;
+        if ($isIgnorable === false) {
+            foreach ($this->ignoreNotLike as $item) {
+                if (!str_contains($uri, $item)) {
+                    $isIgnorable = true;
+                    break;
+                }
             }
         }
 
-        return $isValid;
+        return $isIgnorable;
     }
 
 }
