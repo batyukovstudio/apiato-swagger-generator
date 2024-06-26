@@ -2,7 +2,7 @@
 
 namespace Batyukovstudio\ApiatoSwaggerGenerator\Contracts\Tests;
 
-interface TestControllerInterface
+interface TestRouteInterface
 {
     public function getInjectionData(): array;
 }
