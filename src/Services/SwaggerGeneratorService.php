@@ -13,6 +13,10 @@ use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\Schema\OpenAPISch
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\Schema\OpenAPISchemaValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\RouteInfoValue;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\File;
+use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Collection;
 use Illuminate\Routing\Route;
@@ -28,18 +32,12 @@ class SwaggerGeneratorService
      * Form-like editor is not available for JSON payloads. Here's the corresponding feature request:
      * https://github.com/swagger-api/swagger-ui/issues/2771
      */
-//    private const APPLICATION_JSON = 'application/x-www-form-urlencoded';
     private const APPLICATION_JSON = 'application/json';
     private const METHODS_ORDER = ['get', 'post', 'put', 'patch', 'delete'];
 
-    private array $ignoreLike;
-    private array $ignoreNotLike;
-    private RouteScannerService $scannerService;
-
-    public function __construct(RouteScannerService $scannerService) {
-        $this->scannerService = $scannerService;
-        $this->ignoreLike = config('swagger.ignore.routes_like');
-        $this->ignoreNotLike = config('swagger.ignore.routes_not_like');
+    public function __construct(
+        private readonly RouteScannerService $scannerService
+    ) {
     }
 
     public function generate(): array
@@ -52,31 +50,29 @@ class SwaggerGeneratorService
 
         /** @var Route $route */
         foreach ($routes as $route) {
+            $uri = $route->uri();
             $routeInfo = $this->scannerService->scanRoute($route);
-
-            $tag = $routeInfo->getApiatoContainerName();
-            if ($tag !== null && $tags->contains($tag) === false) {
-                $tags->push($tag);
-            }
-
-            $uri = $route->uri;
-
-            if ($this->isIgnorable($uri)) {
+            if ($routeInfo === null) {
                 continue;
             }
 
-            if (!isset($paths[$route->uri])) {
-                $paths[$uri] = new Collection();
-            }
+//            $tag = $routeInfo->getApiatoContainerName();
+//            if ($tag !== null && $tags->contains($tag) === false) {
+//                $tags->push($tag);
+//            }
+//
+//            if (!isset($paths[$uri])) {
+//                $paths[$uri] = new Collection();
+//            }
 
-            /** @var Collection $routeMethods */
-            $routeMethods = $routeInfo->getMethods();
-
-            foreach (self::METHODS_ORDER as $method) {
-                if ($routeMethods->contains($method)) {
-                    $paths[$uri][$method] = self::generateOpenAPIRoute($method, $routeInfo);
-                }
-            }
+//            /** @var Collection $routeMethods */
+//            $routeMethods = $routeInfo->getMethods();
+//
+//            foreach (self::METHODS_ORDER as $method) {
+//                if ($routeMethods->contains($method)) {
+//                    $paths[$uri][$method] = self::generateOpenAPIRoute($method, $routeInfo);
+//                }
+//            }
         }
 
         return $documentation
@@ -87,6 +83,11 @@ class SwaggerGeneratorService
 
     private static function generateOpenAPIRoute(string $method, RouteInfoValue $routeInfo): OpenAPIRouteValue
     {
+        $controller = $routeInfo->getController();
+        if (null !== $controller) {
+            $response = self::getRouteResponse($controller, $routeInfo);
+        }
+
         $parameters = null;
         $requestBody = null;
 
@@ -102,7 +103,6 @@ class SwaggerGeneratorService
             $requestBody = self::generateOpenAPIRequestBody($rules);
         }
 
-//        $responses = self::generateOpenAPIResponses($rules);
         $summary = null !== $routeInfo->getScanningError()
             ? 'GENERATION ERROR OCCURED: ' . $routeInfo->getScanningError()
             : null;
@@ -161,6 +161,56 @@ class SwaggerGeneratorService
         return $result;
     }
 
+    private static function getRouteResponse(Controller $controller, RouteInfoValue $routeInfo): ?array
+    {
+        $request = $routeInfo->getRequest();
+        $response = null;
+        $injectionData = null;
+
+        $class = $controller::class;
+        $apiSeparator = '\UI\API';
+        $controllerClassPostfix = 'Controller';
+
+        $lastSlashIndex = mb_strrpos($class, '\\');
+
+        if (Str::contains($class, $apiSeparator)) {
+            [$containerPath, $_] = explode($apiSeparator, $class);
+            $controllerClassName = Str::substr($class, $lastSlashIndex + 1, Str::length($class));
+            $routeName = Str::remove($controllerClassPostfix, $controllerClassName);
+
+            $routeTestClass = "{$containerPath}\\Tests\\Unit\\UI\\API\\Routes\\{$routeName}Test";
+            if (class_exists($routeTestClass) && method_exists($routeTestClass, 'getInjectionData')) {
+                $injectionData = $routeTestClass::getInjectionData();
+            }
+        }
+
+        $dependencies = $routeInfo->getDependencies();
+
+        foreach ($dependencies as $dependency) {
+            if ($dependency instanceof Request) {
+//                dump($injectionData);
+                $dependency::injectData($injectionData ?? []);
+//                $request = new $className();
+//                $dependency = $request;
+            }
+        }
+        if ($injectionData !== null) {
+            dd($dependencies);
+        }
+//        dump($routeInfo->getDependencies()->count());
+//
+//        if (null !== $injectionData && null !== $request) {
+//            dd($routeInfo->getDependencies());
+//            $res = $request::injectData($injectionData);
+//            $method = $routeInfo->getControllerMethod();
+//            dd(app($controller::class)->__invoke($request));
+//            $res = $controller->$method;
+//            dd($res);
+//        }
+
+        return $response;
+    }
+    
     private static function generateOpenAPIResponses(Collection $rules): array
     {
         $content = OpenAPIContentValue::run()
@@ -205,29 +255,6 @@ class SwaggerGeneratorService
                 ->setUrl(config('swagger.base_url'))
                 ->setDescription('Server'), // TODO
         ]);
-    }
-
-    private function isIgnorable(string $uri): bool
-    {
-        $isIgnorable = false;
-
-        foreach ($this->ignoreLike as $item) {
-            if (str_contains($uri, $item)) {
-                $isIgnorable = true;
-                break;
-            }
-        }
-
-        if ($isIgnorable === false) {
-            foreach ($this->ignoreNotLike as $item) {
-                if (!str_contains($uri, $item)) {
-                    $isIgnorable = true;
-                    break;
-                }
-            }
-        }
-
-        return $isIgnorable;
     }
 
 }
