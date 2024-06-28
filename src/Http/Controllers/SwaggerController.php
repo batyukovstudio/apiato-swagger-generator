@@ -24,7 +24,7 @@ class SwaggerController extends BaseController
     public function callback(SwaggerGeneratorService $swaggerGeneratorService): Response
     {
 //        dd($swaggerGeneratorService->generate());
-//        return response(json_encode($swaggerGeneratorService->generate()));
+        return response(json_encode($swaggerGeneratorService->generate()));
         $documentation = Storage::disk('swagger')->get(config('swagger.documentation_filename'));
         return response($documentation);
     }

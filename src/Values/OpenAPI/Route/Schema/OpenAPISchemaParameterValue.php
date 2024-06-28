@@ -2,14 +2,14 @@
 
 namespace Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\Schema;
 
-use Batyukovstudio\ApiatoSwaggerGenerator\Contracts\NotNullFilterable;
+use Batyukovstudio\ApiatoSwaggerGenerator\Contracts\NotNullFilterableValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Enums\SchemaParameterFormatsEnum;
 use Batyukovstudio\ApiatoSwaggerGenerator\Enums\SchemaParameterTypesEnum;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\Abstract\Value;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
-class OpenAPISchemaParameterValue extends Value implements NotNullFilterable
+class OpenAPISchemaParameterValue extends Value implements NotNullFilterableValue
 {
     /**
      * https://opis.io/json-schema/2.x/string.html

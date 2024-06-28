@@ -2,6 +2,6 @@
 
 namespace Batyukovstudio\ApiatoSwaggerGenerator\Contracts;
 
-interface NotNullFilterable
+interface NotNullFilterableValue
 {
 }
