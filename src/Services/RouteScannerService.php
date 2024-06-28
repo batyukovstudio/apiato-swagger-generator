@@ -46,6 +46,7 @@ class RouteScannerService
     {
         $request = null;
         $errorMessage = null;
+        $rules = new Collection();
         $dependencies = new Collection();
         $action = $route->getAction();
 
@@ -63,13 +64,10 @@ class RouteScannerService
 
         try {
             $request = $this->extractControllerRequest($reflection);
+            $rules = $this->extractRequestRules($request);
         } catch (RouteScanningException $exception) {
             $errorMessage = $exception->getMessage();
         }
-
-//        $rules = $request === null
-//            ? new Collection()
-//            : $this->rulesNormalizerService->normalize($request->rules());
 
         if (null === $apiatoContainerName) {
             $routeInfo = DefaultRouteValue::run();
@@ -139,6 +137,23 @@ class RouteScannerService
         }
 
         return $containerName;
+    }
+
+    /**
+     * @param FormRequest|null $request
+     * @return Collection
+     * @throws RouteScanningException
+     */
+    private function extractRequestRules(?FormRequest $request): Collection
+    {
+        try {
+            return $request === null
+                ? new Collection()
+                : $this->rulesNormalizerService->normalize($request->rules());
+
+        } catch (\TypeError $e) {
+            throw new RouteScanningException($e->getMessage());
+        }
     }
 
     private function extractRouteController(ReflectionMethod $reflection)
@@ -235,7 +250,10 @@ class RouteScannerService
 
     private function skip(Route $route): void
     {
-        $this->output->writeln("<red>skipped:</red> <yellow>{$route->getName()}</yellow>");
+//        if ($route->getName() === '' or $route->getName() === null) {
+//            dd($route);
+//        }
+        $this->output->writeln("<red>skipped:</red> <yellow>{$route->uri()}</yellow>");
     }
 
 }

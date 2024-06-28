@@ -10,7 +10,7 @@ use Illuminate\Support\Collection;
 class ApiatoRouteValue extends RouteValue
 {
     protected Controller $controller;
-    protected FormRequest $request;
+    protected ?FormRequest $request;
     protected string $controllerMethod;
     protected string $apiatoContainerName;
 
@@ -25,12 +25,12 @@ class ApiatoRouteValue extends RouteValue
         return $this;
     }
 
-    public function getRequest(): FormRequest
+    public function getRequest(): ?FormRequest
     {
         return $this->request;
     }
 
-    public function setRequest(FormRequest $request): self
+    public function setRequest(?FormRequest $request): self
     {
         $this->request = $request;
         return $this;

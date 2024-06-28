@@ -2,11 +2,11 @@
 
 namespace Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route;
 
-use Batyukovstudio\ApiatoSwaggerGenerator\Contracts\NotNullFilterable;
+use Batyukovstudio\ApiatoSwaggerGenerator\Contracts\NotNullFilterableValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\Abstract\Value;
 use Illuminate\Support\Collection;
 
-class OpenAPIRouteValue extends Value implements NotNullFilterable
+class OpenAPIRouteValue extends Value implements NotNullFilterableValue
 {
     protected ?array $requestBody = null;
     protected ?Collection $parameters = null;

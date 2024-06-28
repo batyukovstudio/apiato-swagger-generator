@@ -13,7 +13,7 @@ class OpenAPISchemaValue extends Value
 
     private const REQUIRED = 'required';
 
-    public static function build(Collection $rules): self
+    public static function buildRequestSchema(Collection $rules): self
     {
         $properties = new Collection();
         $required = new Collection();
@@ -30,6 +30,18 @@ class OpenAPISchemaValue extends Value
 //            ->setType('object')
             ->setProperties($properties)
             ->setRequired($required);
+    }
+
+    public static function buildResponseSchema(array $response): self
+    {
+        $properties = new Collection();
+        $properties['data'] = OpenAPISchemaParameterValue::run()
+            ->setType('array')
+            ->setExample($response);
+
+        return self::run()
+//            ->setType('object')
+            ->setProperties($properties);
     }
 
     public function getType(): string

@@ -2,7 +2,7 @@
 
 namespace Batyukovstudio\ApiatoSwaggerGenerator\Values\Abstract;
 
-use Batyukovstudio\ApiatoSwaggerGenerator\Contracts\NotNullFilterable;
+use Batyukovstudio\ApiatoSwaggerGenerator\Contracts\NotNullFilterableValue;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -39,7 +39,7 @@ abstract class Value implements Arrayable
             $result[$name] = $value;
         }
 
-        if ($this instanceof NotNullFilterable) {
+        if ($this instanceof NotNullFilterableValue) {
             $result = array_filter_not_null($result);
         }
 

@@ -3,6 +3,8 @@
 namespace Batyukovstudio\ApiatoSwaggerGenerator\Services;
 
 use Batyukovstudio\ApiatoSwaggerGenerator\Enums\ParametersLocationsEnum;
+use Batyukovstudio\ApiatoSwaggerGenerator\Values\ApiatoRouteValue;
+use Batyukovstudio\ApiatoSwaggerGenerator\Values\DefaultRouteValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\OpenAPIInfoValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\OpenAPIServerValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\OpenAPIValue;
@@ -12,15 +14,8 @@ use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\Schema\OpenAPICon
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\Schema\OpenAPISchemaParameterValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\Schema\OpenAPISchemaValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\RouteInfoValue;
-use Illuminate\Contracts\Config\Repository as ConfigRepository;
-use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\File;
-use Illuminate\Routing\Controller;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Collection;
 use Illuminate\Routing\Route;
-use Illuminate\Support\Str;
+use Illuminate\Support\Collection;
 
 
 class SwaggerGeneratorService
@@ -36,7 +31,8 @@ class SwaggerGeneratorService
     private const METHODS_ORDER = ['get', 'post', 'put', 'patch', 'delete'];
 
     public function __construct(
-        private readonly RouteScannerService $scannerService
+        private readonly RouteScannerService $scannerService,
+        private readonly RouteResponseService $responseService,
     ) {
     }
 
@@ -56,23 +52,33 @@ class SwaggerGeneratorService
                 continue;
             }
 
-//            $tag = $routeInfo->getApiatoContainerName();
-//            if ($tag !== null && $tags->contains($tag) === false) {
-//                $tags->push($tag);
-//            }
-//
-//            if (!isset($paths[$uri])) {
-//                $paths[$uri] = new Collection();
-//            }
+            switch ($routeInfo::class) {
 
-//            /** @var Collection $routeMethods */
-//            $routeMethods = $routeInfo->getMethods();
-//
-//            foreach (self::METHODS_ORDER as $method) {
-//                if ($routeMethods->contains($method)) {
-//                    $paths[$uri][$method] = self::generateOpenAPIRoute($method, $routeInfo);
-//                }
-//            }
+                case ApiatoRouteValue::class:
+                    $tag = $routeInfo->getApiatoContainerName();
+                    break;
+
+                case DefaultRouteValue::class:
+                    $tag = 'Default';
+                    break;
+            }
+
+            if ($tags->contains($tag) === false) {
+                $tags->push($tag);
+            }
+
+            if (!isset($paths[$uri])) {
+                $paths[$uri] = new Collection();
+            }
+
+            /** @var Collection $routeMethods */
+            $routeMethods = $routeInfo->getMethods();
+
+            foreach (self::METHODS_ORDER as $method) {
+                if ($routeMethods->contains($method)) {
+                    $paths[$uri][$method] = $this->generateOpenAPIRoute($tag, $method, $routeInfo);
+                }
+            }
         }
 
         return $documentation
@@ -81,17 +87,18 @@ class SwaggerGeneratorService
             ->toArray();
     }
 
-    private static function generateOpenAPIRoute(string $method, RouteInfoValue $routeInfo): OpenAPIRouteValue
+    private function generateOpenAPIRoute(
+        string $tag, string $method, DefaultRouteValue|ApiatoRouteValue $routeInfo): OpenAPIRouteValue
     {
-        $controller = $routeInfo->getController();
-        if (null !== $controller) {
-            $response = self::getRouteResponse($controller, $routeInfo);
+        $response = $this->responseService->getResponse($routeInfo);
+        $responses = null;
+        if ($response !== null) {
+            $responses = self::generateOpenAPIResponses($response);
         }
 
         $parameters = null;
         $requestBody = null;
 
-        $tag = $routeInfo->getApiatoContainerName();
         $rules = $routeInfo->getRules();
         $in = in_array(strtoupper($method), ParametersLocationsEnum::BODY_METHODS)
             ? ParametersLocationsEnum::BODY
@@ -103,17 +110,16 @@ class SwaggerGeneratorService
             $requestBody = self::generateOpenAPIRequestBody($rules);
         }
 
-        $summary = null !== $routeInfo->getScanningError()
-            ? 'GENERATION ERROR OCCURED: ' . $routeInfo->getScanningError()
+        $summary = null !== $routeInfo->getScanErrorMessage()
+            ? 'GENERATION ERROR OCCURED: ' . $routeInfo->getScanErrorMessage()
             : null;
 
         return OpenAPIRouteValue::run()
             ->setSummary($summary)
-            ->setTags(collect($tag === null ? self::DEFAULT_TAG : $tag))
+            ->setTags(collect($tag))
             ->setParameters($parameters)
             ->setRequestBody($requestBody)
-//            ->setResponses($responses)
-            ->setResponses(null);
+            ->setResponses($responses);
     }
 
     private static function generateOpenAPIQueryParameters(Collection $rules): ?Collection
@@ -143,7 +149,7 @@ class SwaggerGeneratorService
     {
         $result = null;
 
-        $schema = OpenAPISchemaValue::build($rules);
+        $schema = OpenAPISchemaValue::buildRequestSchema($rules);
         if (false === $schema->getProperties()->isEmpty()) {
             $content = OpenAPIContentValue::run()
                 ->setType(self::APPLICATION_JSON)
@@ -161,65 +167,15 @@ class SwaggerGeneratorService
         return $result;
     }
 
-    private static function getRouteResponse(Controller $controller, RouteInfoValue $routeInfo): ?array
-    {
-        $request = $routeInfo->getRequest();
-        $response = null;
-        $injectionData = null;
-
-        $class = $controller::class;
-        $apiSeparator = '\UI\API';
-        $controllerClassPostfix = 'Controller';
-
-        $lastSlashIndex = mb_strrpos($class, '\\');
-
-        if (Str::contains($class, $apiSeparator)) {
-            [$containerPath, $_] = explode($apiSeparator, $class);
-            $controllerClassName = Str::substr($class, $lastSlashIndex + 1, Str::length($class));
-            $routeName = Str::remove($controllerClassPostfix, $controllerClassName);
-
-            $routeTestClass = "{$containerPath}\\Tests\\Unit\\UI\\API\\Routes\\{$routeName}Test";
-            if (class_exists($routeTestClass) && method_exists($routeTestClass, 'getInjectionData')) {
-                $injectionData = $routeTestClass::getInjectionData();
-            }
-        }
-
-        $dependencies = $routeInfo->getDependencies();
-
-        foreach ($dependencies as $dependency) {
-            if ($dependency instanceof Request) {
-//                dump($injectionData);
-                $dependency::injectData($injectionData ?? []);
-//                $request = new $className();
-//                $dependency = $request;
-            }
-        }
-        if ($injectionData !== null) {
-            dd($dependencies);
-        }
-//        dump($routeInfo->getDependencies()->count());
-//
-//        if (null !== $injectionData && null !== $request) {
-//            dd($routeInfo->getDependencies());
-//            $res = $request::injectData($injectionData);
-//            $method = $routeInfo->getControllerMethod();
-//            dd(app($controller::class)->__invoke($request));
-//            $res = $controller->$method;
-//            dd($res);
-//        }
-
-        return $response;
-    }
-    
-    private static function generateOpenAPIResponses(Collection $rules): array
+    private static function generateOpenAPIResponses(array $response, string $description = 'test'): array
     {
         $content = OpenAPIContentValue::run()
             ->setType(self::APPLICATION_JSON)
-            ->setSchema(OpenAPISchemaValue::build($rules));
+            ->setSchema(OpenAPISchemaValue::buildResponseSchema($response));
 
         return [
             '200' => [
-                'description' => 'test',
+                'description' => $description,
                 'content' => [
                     $content->getType() => [
                         'schema' => $content->getSchema()->toArray(),
