@@ -47,10 +47,9 @@ class RouteScannerService
         $request = null;
         $errorMessage = null;
         $rules = new Collection();
-        $dependencies = new Collection();
         $action = $route->getAction();
 
-        if ($this->isIgnorable($route->uri) || false === $this->hasValidController($action)) {
+        if ($this->isIgnorable($route->uri()) || false === $this->hasValidController($action)) {
             $this->skip($route);
             return null;
         }
@@ -250,9 +249,6 @@ class RouteScannerService
 
     private function skip(Route $route): void
     {
-//        if ($route->getName() === '' or $route->getName() === null) {
-//            dd($route);
-//        }
         $this->output->writeln("<red>skipped:</red> <yellow>{$route->uri()}</yellow>");
     }
 
