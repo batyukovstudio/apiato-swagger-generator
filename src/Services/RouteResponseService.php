@@ -5,45 +5,99 @@ namespace Batyukovstudio\ApiatoSwaggerGenerator\Services;
 use Batyukovstudio\ApiatoSwaggerGenerator\Contracts\Tests\TestRouteInterface;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\ApiatoRouteValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\DefaultRouteValue;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class RouteResponseService
 {
+    private static array $RESPONSES;
+    private array $loadedResponses;
+    private bool $loadedResponsesFail;
+    private const RESPONSES_FILENAME = 'test-responses.json';
+
     private const API_SEPARATOR = '\UI\API';
     private const CONTROLLER_CLASS_POSTFIX = 'Controller';
     private const INJECTION_DATA_INTERFACE = TestRouteInterface::class;
 
-    public function getResponse(DefaultRouteValue|ApiatoRouteValue $routeInfo)
+    public function __construct()
     {
-        $controller = $routeInfo->getController();
-        $request = $routeInfo->getRequest();
+        $this->loadedResponses = [];
+        $this->loadedResponsesFail = false;
+    }
 
-        $responseData = null;
-        $injectionData = null;
+    public function pushResponse(Request $request, JsonResponse $response): void
+    {
+        $responseContent = json_decode($response->getContent(), associative: true);
+        if (isset($responseContent['data'])) {
+            $responseContent = $responseContent['data'];
+        }
 
-        $controllerClass = $controller::class;
+        self::$RESPONSES[$request->getPathInfo()] = [
+            'status' => $response->getStatusCode(),
+            'response' => [
+                'data' => $responseContent,
+            ],
+        ];
+    }
 
-        if (self::isApiatoApiRoute($controllerClass)) {
-            $routeTestClass = self::buildRouteTestClass($controllerClass);
+    public function saveResponsesToDisk(): void
+    {
+        Storage::disk('swagger')->put(self::RESPONSES_FILENAME, json_encode(self::$RESPONSES));
+    }
 
-            if (self::hasInjectionData($routeTestClass)) {
-                $injectionData = $routeTestClass::getInjectionData();
+    public function getResponse(DefaultRouteValue|ApiatoRouteValue $routeInfo): ?array
+    {
+        if (empty($this->loadedResponses) && $this->loadedResponsesFail !== true) {
+            $loaded = Storage::disk('swagger')->get(self::RESPONSES_FILENAME);
+            if ($loaded !== null) {
+                $this->loadedResponses = json_decode($loaded, associative: true);
+            } else {
+                $this->loadedResponsesFail = true;
             }
         }
 
-        if ($injectionData !== null) {
-            $dependencies = self::injectRequestData($injectionData, $routeInfo->getDependencies());
-            $responseData = self::callController($controllerClass, $routeInfo->getControllerMethod(), $dependencies);
-        }
-
-        return $responseData;
+        $pathInfo = $routeInfo->getPathInfo();
+//        dump($pathInfo);
+//        dump($this->loadedResponses);
+        return $this->loadedResponses[$pathInfo] ?? null;
+//
+//        $controller = $routeInfo->getController();
+//        $request = $routeInfo->getRequest();
+//
+//        $responseData = null;
+//        $injectionData = null;
+//
+//        $controllerClass = $controller::class;
+//
+//        if (self::isApiatoApiRoute($controllerClass)) {
+//            $routeTestClass = self::buildRouteTestClass($controllerClass);
+//
+//            if (self::hasInjectionData($routeTestClass)) {
+//                $injectionData = $routeTestClass::getInjectionData();
+//            }
+//        }
+//
+//        if ($injectionData !== null) {
+//            $dependencies = self::injectRequestData($injectionData, $routeInfo->getDependencies());
+//            $responseData = self::callController($controllerClass, $routeInfo->getControllerMethod(), $dependencies);
+//        }
+//
+//        return $responseData;
     }
 
     private static function hasInjectionData(string $routeTestClass): bool
     {
+        try {
+            class_exists($routeTestClass);
+        } catch (\Exception | \Error) {
+            return false;
+        }
+
         return
             class_exists($routeTestClass) &&
             isset(class_implements($routeTestClass)[self::INJECTION_DATA_INTERFACE]);

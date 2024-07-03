@@ -13,6 +13,7 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Collection;
 use Illuminate\Routing\Route;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use ReflectionException;
 use ReflectionMethod;
 use Illuminate\Support\Str;
@@ -76,6 +77,7 @@ class RouteScannerService
         }
 
         return $routeInfo
+            ->setPathInfo($route->uri())
             ->setScanErrorMessage($errorMessage)
             ->setController($controller)
             ->setControllerMethod($controllerMethod)
