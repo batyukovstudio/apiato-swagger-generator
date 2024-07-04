@@ -57,8 +57,6 @@ class RouteResponseService
 
         $pathInfo = $routeInfo->getPathInfo();
         $responseGroup = $loadedResponseGroups[$pathInfo] ?? [];
-        dump($pathInfo);
-        dump(array_keys($loadedResponseGroups));
 
         foreach ($responseGroup as $status => $content) {
             $responses->push(ResponseValue::run()
