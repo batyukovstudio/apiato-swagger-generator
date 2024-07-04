@@ -115,11 +115,8 @@ class SwaggerGeneratorService
     private function generateOpenAPIRoute(
         string $tag, string $method, DefaultRouteValue|ApiatoRouteValue $routeInfo): OpenAPIRouteValue
     {
-        $response = $this->responseService->getResponse($routeInfo);
-        $responses = null;
-        if ($response !== null) {
-            $responses = self::generateOpenAPIResponses($response);
-        }
+        $loadedResponses = $this->responseService->getResponses($routeInfo);
+        $responses = self::generateOpenAPIResponses($loadedResponses);
 
         $parameters = null;
         $requestBody = null;
@@ -197,7 +194,7 @@ class SwaggerGeneratorService
         $openApiResponses = [];
 
         /** @var ResponseValue $response */
-        foreach ($response as $response) {
+        foreach ($responses as $response) {
             $content = OpenAPIContentValue::run()
                 ->setType(self::APPLICATION_JSON)
                 ->setSchema(OpenAPISchemaValue::buildResponseSchema($response->getContent()));
