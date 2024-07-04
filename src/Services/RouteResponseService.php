@@ -35,7 +35,7 @@ class RouteResponseService
             $responseContent = $responseContent['data'];
         }
 
-        $pathInfo = $request->getPathInfo();
+        $pathInfo = $request->route()->uri();
 
         if (false === isset(self::$RESPONSES[$pathInfo])) {
             self::$RESPONSES[$pathInfo] = [];
@@ -57,6 +57,8 @@ class RouteResponseService
 
         $pathInfo = $routeInfo->getPathInfo();
         $responseGroup = $loadedResponseGroups[$pathInfo] ?? [];
+        dump($pathInfo);
+        dump(array_keys($loadedResponseGroups));
 
         foreach ($responseGroup as $status => $content) {
             $responses->push(ResponseValue::run()
