@@ -14,6 +14,7 @@ use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\QueryParameters\O
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\Schema\OpenAPIContentValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\Schema\OpenAPISchemaParameterValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\Schema\OpenAPISchemaValue;
+use Batyukovstudio\ApiatoSwaggerGenerator\Values\ResponseValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\RouteInfoValue;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -82,16 +83,10 @@ class SwaggerGeneratorService
                 continue;
             }
 
-            switch ($routeInfo::class) {
-
-                case ApiatoRouteValue::class:
-                    $tag = $routeInfo->getApiatoContainerName();
-                    break;
-
-                case DefaultRouteValue::class:
-                    $tag = 'Default';
-                    break;
-            }
+            $tag = match($routeInfo::class) {
+                ApiatoRouteValue::class => $routeInfo->getApiatoContainerName(),
+                DefaultRouteValue::class => 'Default',
+            };
 
             if ($tags->contains($tag) === false) {
                 $tags->push($tag);
@@ -197,22 +192,27 @@ class SwaggerGeneratorService
         return $result;
     }
 
-    private static function generateOpenAPIResponses(array $response, string $description = 'test'): array
+    private static function generateOpenAPIResponses(Collection $responses, string $description = null): array
     {
-        $content = OpenAPIContentValue::run()
-            ->setType(self::APPLICATION_JSON)
-            ->setSchema(OpenAPISchemaValue::buildResponseSchema($response));
+        $openApiResponses = [];
 
-        return [
-            '200' => [
+        /** @var ResponseValue $response */
+        foreach ($response as $response) {
+            $content = OpenAPIContentValue::run()
+                ->setType(self::APPLICATION_JSON)
+                ->setSchema(OpenAPISchemaValue::buildResponseSchema($response->getContent()));
+
+            $openApiResponses[$response->getStatus()] = [
                 'description' => $description,
                 'content' => [
                     $content->getType() => [
                         'schema' => $content->getSchema()->toArray(),
                     ],
                 ],
-            ]
-        ];
+            ];
+        }
+
+        return $openApiResponses;
     }
 
     private static function generateOpenAPI(): OpenAPIValue
