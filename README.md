@@ -5,6 +5,7 @@
 - **PHP 8.1+**
 - **Laravel 10+**
 - **Apiato 10+**
+- **PHPUnit 10+**
 
 ### Installation
 
@@ -15,24 +16,44 @@ composer require batyukovstudio/apiato-swagger-generator
 ```
 
 ### Usage
-
+Generate documentation base:
 ```bash
 php artisan swagger:generate
 ```
+Run tests
+```bash
+php artisan test
+```
 
 ### Tests integration
+1. Setup PHPUnit with apiato: https://apiato.io/docs/components/optional-components/tests/
+2. Include Batyukovstudio\ApiatoSwaggerGenerator\PhpUnitExtension extension (see phpunit.example.test)
+```xml
+<extensions>
+    <bootstrap class="Batyukovstudio\ApiatoSwaggerGenerator\PhpUnitExtension">
+    </bootstrap>
+</extensions>
+```
+3. Register global middleware in your main Kernel class (HttpKernel in Apiato)
+```php
+use Batyukovstudio\ApiatoSwaggerGenerator\Middlewares\SwaggerGeneratorMiddleware;
 
-Конвенция Apiato по написанию тестов:
-```https://apiato.io/docs/components/optional-components/tests```
+class HttpKernel extends LaravelHttpKernel
+{
+    protected $middleware = [
+        // Laravel middlewares
+        SwaggerGeneratorMiddleware::class,
+        // other middlewares
+    ];
+}
+```
+4. Import trait to your parent TestCase to enable recording test responses
+```php
+use Batyukovstudio\ApiatoSwaggerGenerator\Traits\CanRecordTestResponses;
 
-#### Алгоритм внедрения:
-
-Для интеграции тестирования необходимо по конвенции Apiato внедрить тест маршрута, общий вид:
-
-App\Section\Container\Tests\Unit\UI\Routes\RouteNameTest
-
-Данный тест должен реализовывать интерфейс TestRouteInterface из данного пакета. При соблюдении
-данных условий команда php artisan swagger:generate самостоятельно возьмёт тестовые данные из
-класса теста и выполнит запрос к маршруту с их помощью, соответственно будет сгенерирован
-достоверный пример ответа на данный запрос
-
+class YourParentTestCase extends AbstractTestCase
+{
+    use CanRecordTestResponses;
+}
+```
+4. Enjoy it 😇😇😇

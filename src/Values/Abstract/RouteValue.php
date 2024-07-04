@@ -4,13 +4,30 @@ namespace Batyukovstudio\ApiatoSwaggerGenerator\Values\Abstract;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 abstract class RouteValue extends Value
 {
     protected Collection $dependencies;
     protected Collection $methods;
     protected Collection $rules;
+    protected string $pathInfo;
     protected ?string $scanErrorMessage = null;
+
+    public function getPathInfo(): string
+    {
+        return $this->pathInfo;
+    }
+
+    public function setPathInfo(string $pathInfo): self
+    {
+        if (false === Str::startsWith($pathInfo, '/')) {
+            $pathInfo = '/' . $pathInfo;
+        }
+
+        $this->pathInfo = $pathInfo;
+        return $this;
+    }
 
     public function getDependencies(): Collection
     {

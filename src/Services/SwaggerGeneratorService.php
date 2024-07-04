@@ -3,6 +3,7 @@
 namespace Batyukovstudio\ApiatoSwaggerGenerator\Services;
 
 use Batyukovstudio\ApiatoSwaggerGenerator\Enums\ParametersLocationsEnum;
+use Batyukovstudio\ApiatoSwaggerGenerator\Enums\SwaggerGeneratorMiddlewareStatesEnum;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\ApiatoRouteValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\DefaultRouteValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\OpenAPIInfoValue;
@@ -13,15 +14,26 @@ use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\QueryParameters\O
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\Schema\OpenAPIContentValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\Schema\OpenAPISchemaParameterValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\Schema\OpenAPISchemaValue;
+use Batyukovstudio\ApiatoSwaggerGenerator\Values\ResponseValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\RouteInfoValue;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Collection;
+use Symfony\Component\Console\Formatter\OutputFormatterStyle;
+use Symfony\Component\Console\Output\ConsoleOutput;
 
 
 class SwaggerGeneratorService
 {
+    /**
+     * Состояние глобальной миддлвары генератора, когда включена -
+     * автоматически прокидывает в сервис все ответы на http запросы
+     * Включать $STATE в ENABLED только в главном тест-кейсе и выключать при завершении
+     */
+    public static SwaggerGeneratorMiddlewareStatesEnum $STATE = SwaggerGeneratorMiddlewareStatesEnum::DISABLED;
+
     private const REQUIRED = 'required';
-    private const DEFAULT_TAG = 'default';
 
     /**
      * Form-like editor is not available for JSON payloads. Here's the corresponding feature request:
@@ -33,7 +45,26 @@ class SwaggerGeneratorService
     public function __construct(
         private readonly RouteScannerService $scannerService,
         private readonly RouteResponseService $responseService,
+        private readonly ConsoleOutput $output,
     ) {
+        $green = new OutputFormatterStyle('green');
+        $yellow = new OutputFormatterStyle('yellow');
+
+        $this->output->getFormatter()->setStyle('green', $green);
+        $this->output->getFormatter()->setStyle('yellow', $yellow);
+    }
+
+    public function pushResponse(Request $request, JsonResponse $response): void
+    {
+        $this->responseService->pushResponse($request, $response);
+    }
+
+    public function saveResponsesToDisk(): void
+    {
+        $this->responseService->saveResponsesToDisk();
+        $status = "<yellow>apiato-swagger-generator: </yellow>";
+        $message = "<green>Ответы, полученные с Route-тестов, успешно сохранены на диск</green>\n";
+        $this->output->writeln($status . $message);
     }
 
     public function generate(): array
@@ -52,16 +83,10 @@ class SwaggerGeneratorService
                 continue;
             }
 
-            switch ($routeInfo::class) {
-
-                case ApiatoRouteValue::class:
-                    $tag = $routeInfo->getApiatoContainerName();
-                    break;
-
-                case DefaultRouteValue::class:
-                    $tag = 'Default';
-                    break;
-            }
+            $tag = match($routeInfo::class) {
+                ApiatoRouteValue::class => $routeInfo->getApiatoContainerName(),
+                DefaultRouteValue::class => 'Default',
+            };
 
             if ($tags->contains($tag) === false) {
                 $tags->push($tag);
@@ -167,22 +192,27 @@ class SwaggerGeneratorService
         return $result;
     }
 
-    private static function generateOpenAPIResponses(array $response, string $description = 'test'): array
+    private static function generateOpenAPIResponses(Collection $responses, string $description = null): array
     {
-        $content = OpenAPIContentValue::run()
-            ->setType(self::APPLICATION_JSON)
-            ->setSchema(OpenAPISchemaValue::buildResponseSchema($response));
+        $openApiResponses = [];
 
-        return [
-            '200' => [
+        /** @var ResponseValue $response */
+        foreach ($response as $response) {
+            $content = OpenAPIContentValue::run()
+                ->setType(self::APPLICATION_JSON)
+                ->setSchema(OpenAPISchemaValue::buildResponseSchema($response->getContent()));
+
+            $openApiResponses[$response->getStatus()] = [
                 'description' => $description,
                 'content' => [
                     $content->getType() => [
                         'schema' => $content->getSchema()->toArray(),
                     ],
                 ],
-            ]
-        ];
+            ];
+        }
+
+        return $openApiResponses;
     }
 
     private static function generateOpenAPI(): OpenAPIValue
