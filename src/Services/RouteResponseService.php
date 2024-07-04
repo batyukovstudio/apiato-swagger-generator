@@ -5,6 +5,7 @@ namespace Batyukovstudio\ApiatoSwaggerGenerator\Services;
 use Batyukovstudio\ApiatoSwaggerGenerator\Contracts\Tests\TestRouteInterface;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\ApiatoRouteValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\DefaultRouteValue;
+use Batyukovstudio\ApiatoSwaggerGenerator\Values\ResponseValue;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -29,6 +30,7 @@ class RouteResponseService
     public function pushResponse(Request $request, JsonResponse $response): void
     {
         $responseContent = json_decode($response->getContent(), associative: true);
+
         if (isset($responseContent['data'])) {
             $responseContent = $responseContent['data'];
         }
@@ -39,9 +41,8 @@ class RouteResponseService
             self::$RESPONSES[$pathInfo] = [];
         }
 
-        self::$RESPONSES[$pathInfo][(string) $response->getStatusCode()] = [
-            'data' => $responseContent,
-        ];
+        $statusCode = (string)$response->getStatusCode();
+        self::$RESPONSES[$pathInfo][$statusCode] = $responseContent;
     }
 
     public function saveResponsesToDisk(): void
@@ -49,29 +50,31 @@ class RouteResponseService
         Storage::disk('swagger')->put(self::RESPONSES_FILENAME, json_encode(self::$RESPONSES));
     }
 
-    public function getResponses(DefaultRouteValue|ApiatoRouteValue $routeInfo): ?array
+    public function getResponses(DefaultRouteValue|ApiatoRouteValue $routeInfo): Collection
     {
-        $responses = $this->loadResponses();
+        $responses = new Collection();
+        $loadedResponseGroups = $this->loadResponses();
 
         $pathInfo = $routeInfo->getPathInfo();
+        $responseGroup = $loadedResponseGroups[$pathInfo] ?? [];
 
-        return $responses[$pathInfo] ?? null;
+        foreach ($responseGroup as $status => $content) {
+            $responses->push(ResponseValue::run()
+                ->setStatus($status)
+                ->setContent($content));
+        }
+
+        return $responses;
     }
 
     private function loadResponses(): array
     {
-        $responses = [];
-
-        if (empty($this->loadedResponses) && $this->isFirstLoad === true) {
+        if ($this->isFirstLoad === true) {
             $loaded = Storage::disk('swagger')->get(self::RESPONSES_FILENAME);
-
-            if ($loaded !== null) {
-                $this->loadedResponses = json_decode($loaded, associative: true);
-            } else {
-                $this->isFirstLoad = false;
-            }
+            $this->loadedResponses = json_decode($loaded, associative: true);
+            $this->isFirstLoad = false;
         }
 
-        return $responses;
+        return $this->loadedResponses;
     }
 }
