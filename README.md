@@ -28,14 +28,32 @@ php artisan test
 ### Tests integration
 1. Setup PHPUnit with apiato: https://apiato.io/docs/components/optional-components/tests/
 2. Include Batyukovstudio\ApiatoSwaggerGenerator\PhpUnitExtension extension (see phpunit.example.test)
+```xml
+<extensions>
+    <bootstrap class="Batyukovstudio\ApiatoSwaggerGenerator\PhpUnitExtension">
+    </bootstrap>
+</extensions>
 ```
-    <extensions>
-        <bootstrap class="Batyukovstudio\ApiatoSwaggerGenerator\PhpUnitExtension">
-        </bootstrap>
-    </extensions>
-```
-3. To enable recording test responses import trait to your parent TestCase
+3. Register global middleware in your main Kernel class (HttpKernel in Apiato)
 ```php
-use Batyukovstudio\ApiatoSwaggerGenerator\Traits;
+use Batyukovstudio\ApiatoSwaggerGenerator\Middlewares\SwaggerGeneratorMiddleware;
+
+class HttpKernel extends LaravelHttpKernel
+{
+    protected $middleware = [
+        // Laravel middlewares
+        SwaggerGeneratorMiddleware::class,
+        // other middlewares
+    ];
+}
+```
+4. Import trait to your parent TestCase to enable recording test responses
+```php
+use Batyukovstudio\ApiatoSwaggerGenerator\Traits\CanRecordTestResponses;
+
+class YourParentTestCase extends AbstractTestCase
+{
+    use CanRecordTestResponses;
+}
 ```
 4. Enjoy it 😇😇😇
