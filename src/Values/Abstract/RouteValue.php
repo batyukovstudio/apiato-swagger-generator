@@ -21,10 +21,6 @@ abstract class RouteValue extends Value
 
     public function setPathInfo(string $pathInfo): self
     {
-        if (false === Str::startsWith($pathInfo, '/')) {
-            $pathInfo = '/' . $pathInfo;
-        }
-
         $this->pathInfo = $pathInfo;
         return $this;
     }
