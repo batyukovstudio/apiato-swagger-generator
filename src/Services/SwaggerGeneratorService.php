@@ -2,7 +2,7 @@
 
 namespace Batyukovstudio\ApiatoSwaggerGenerator\Services;
 
-use Batyukovstudio\ApiatoSwaggerGenerator\Enums\ParametersLocationsEnum;
+use Batyukovstudio\ApiatoSwaggerGenerator\Enums\OpenAPI\ParametersLocationsEnum;
 use Batyukovstudio\ApiatoSwaggerGenerator\Enums\SwaggerGeneratorMiddlewareStatesEnum;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\ApiatoRouteValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\DefaultRouteValue;
@@ -106,6 +106,7 @@ class SwaggerGeneratorService
             }
         }
 
+        dd($this->scannerService->routeFilesData);
         return $documentation
             ->setPaths($paths)
             ->setTags($tags)

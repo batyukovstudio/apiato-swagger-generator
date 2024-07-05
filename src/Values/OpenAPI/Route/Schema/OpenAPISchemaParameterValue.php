@@ -3,8 +3,8 @@
 namespace Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\Route\Schema;
 
 use Batyukovstudio\ApiatoSwaggerGenerator\Contracts\NotNullFilterableValue;
-use Batyukovstudio\ApiatoSwaggerGenerator\Enums\SchemaParameterFormatsEnum;
-use Batyukovstudio\ApiatoSwaggerGenerator\Enums\SchemaParameterTypesEnum;
+use Batyukovstudio\ApiatoSwaggerGenerator\Enums\OpenAPI\SchemaParameterFormatsEnum;
+use Batyukovstudio\ApiatoSwaggerGenerator\Enums\OpenAPI\SchemaParameterTypesEnum;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\Abstract\Value;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;

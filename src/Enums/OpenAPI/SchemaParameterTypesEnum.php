@@ -1,6 +1,6 @@
 <?php
 
-namespace Batyukovstudio\ApiatoSwaggerGenerator\Enums;
+namespace Batyukovstudio\ApiatoSwaggerGenerator\Enums\OpenAPI;
 
 class SchemaParameterTypesEnum
 {

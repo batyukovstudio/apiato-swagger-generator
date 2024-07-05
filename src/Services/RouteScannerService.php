@@ -2,31 +2,44 @@
 
 namespace Batyukovstudio\ApiatoSwaggerGenerator\Services;
 
-use Batyukovstudio\ApiatoSwaggerGenerator\Enums\ParametersLocationsEnum;
+use Batyukovstudio\ApiatoSwaggerGenerator\Enums\OpenAPI\ParametersLocationsEnum;
 use Batyukovstudio\ApiatoSwaggerGenerator\Exceptions\RouteScanningException;
+use Batyukovstudio\ApiatoSwaggerGenerator\Values\ApiatoContainerInfoValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\ApiatoRouteValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\DefaultRouteValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\RouteInfoValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\RouteScanResultValue;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Routing\Controller;
-use Illuminate\Support\Collection;
-use Illuminate\Routing\Route;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Routing\Route;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
 use ReflectionException;
 use ReflectionMethod;
-use Illuminate\Support\Str;
-use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Formatter\OutputFormatterStyle;
+use Symfony\Component\Console\Output\ConsoleOutput;
 
 class RouteScannerService
 {
+    /**
+     * Route:: — начало строки, ищем точное совпадение с Route::.
+     * \w+ — любое слово (имя метода, например, get, post, any и т. д.).
+     * \s* — возможные пробелы.
+     * [(] — открывающая круглая скобка.
+     * \s* — возможные пробелы.
+     * [\'"] — открывающая кавычка (одинарная или двойная).
+     * [^\'"]* — любой символ, кроме одинарной или двойной кавычки (содержимое параметра).
+     */
+    private const ROUTE_URL_REGEX = '/Route::\w+\s*[(]\s*[\'\"][^\'\"]*[\'\"]\s*/';
+
     private array $ignoreLike;
     private array $ignoreNotLike;
+    public array $routeFilesData;
 
     public function __construct(
         private readonly RequestRulesNormalizerService $rulesNormalizerService,
+        private readonly DocStringParserService $docStringParserService,
         private readonly ConsoleOutput $output,
     ) {
         $red = new OutputFormatterStyle('red');
@@ -37,6 +50,7 @@ class RouteScannerService
 
         $this->ignoreLike = config('swagger.ignore.routes_like');
         $this->ignoreNotLike = config('swagger.ignore.routes_not_like');
+        $this->routeFilesData = [];
     }
 
     /**
@@ -57,7 +71,7 @@ class RouteScannerService
 
         $methods = $this->filterRouteMethods($route);
         $reflection = $this->extractRouteReflection($action);
-        $apiatoContainerName = $this->extractApiatoContainerName($reflection);
+        $apiatoContainerInfo = $this->extractApiatoContainerInfo($reflection);
         $controller = $this->extractRouteController($reflection);
         $controllerMethod = $reflection->getName();
         $dependencies = $this->extractControllerDependencies($reflection);
@@ -69,11 +83,12 @@ class RouteScannerService
             $errorMessage = $exception->getMessage();
         }
 
-        if (null === $apiatoContainerName) {
+        if (null === $apiatoContainerInfo) {
             $routeInfo = DefaultRouteValue::run();
         } else {
+            $this->parseRouteFilesInContainer($apiatoContainerInfo);
             $routeInfo = ApiatoRouteValue::run()
-                ->setApiatoContainerName($apiatoContainerName);
+                ->setApiatoContainerName($apiatoContainerInfo->getContainerName());
         }
 
         return $routeInfo
@@ -121,9 +136,9 @@ class RouteScannerService
         return $reflection;
     }
 
-    private function extractApiatoContainerName(ReflectionMethod $reflection): ?string
+    private function extractApiatoContainerInfo(ReflectionMethod $reflection): ?ApiatoContainerInfoValue
     {
-        $containerName = null;
+        $containerInfo = null;
 
         $controllerPathParts = explode('\\', $reflection->class);
         if (count($controllerPathParts) === 8) {
@@ -133,11 +148,13 @@ class RouteScannerService
                 $controllerPathParts[5] === 'API' &&
                 $controllerPathParts[6] === 'Controllers'
             ) {
-                $containerName = $controllerPathParts[3];
+                $containerInfo = ApiatoContainerInfoValue::run()
+                    ->setSectionName($controllerPathParts[2])
+                    ->setContainerName($controllerPathParts[3]);
             }
         }
 
-        return $containerName;
+        return $containerInfo;
     }
 
     /**
@@ -252,6 +269,42 @@ class RouteScannerService
     private function skip(Route $route): void
     {
         $this->output->writeln("<red>skipped:</red> <yellow>{$route->uri()}</yellow>");
+    }
+
+    private function parseRouteFilesInContainer(ApiatoContainerInfoValue $apiatoContainerInfo): void
+    {
+        $section = $apiatoContainerInfo->getSectionName();
+        $container = $apiatoContainerInfo->getContainerName();
+
+        $path = base_path("app/Containers/$section/$container/UI/API/Routes");
+
+        if (File::exists($path)) {
+            $routeFiles = File::allFiles($path);
+
+            /** @var Symfony\Component\Finder\SplFileInfo $file */
+            foreach ($routeFiles as $file) {
+                $path = $file->getPathName();
+
+                if (File::isReadable($path)) {
+                    $this->rememberRouteFileData($path);
+                }
+            }
+        }
+    }
+
+    private function rememberRouteFileData(string $routeFilePath): void
+    {
+        $routeFileContents = File::get($routeFilePath);
+        $routeDefinition = Str::match(self::ROUTE_URL_REGEX, $routeFileContents);
+        $singleQuote = '\'';
+        $doubleQuote = '"';
+        $routePath = Str::between($routeDefinition, $singleQuote, $singleQuote);
+
+        if ($routePath === $routeDefinition || $routePath === '') {
+            $routePath = Str::between($routeDefinition, $doubleQuote, $doubleQuote);
+        }
+
+        $this->routeFilesData[$routePath] = $this->docStringParserService->parse($routeFileContents);
     }
 
 }
