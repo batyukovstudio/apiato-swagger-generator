@@ -2,6 +2,7 @@
 
 namespace Batyukovstudio\ApiatoSwaggerGenerator\Values\Abstract;
 
+use Batyukovstudio\ApiatoSwaggerGenerator\Values\DocBlocks\DocBlockValue;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -12,7 +13,19 @@ abstract class RouteValue extends Value
     protected Collection $methods;
     protected Collection $rules;
     protected string $pathInfo;
+    protected ?DocBlockValue $docBlockValue;
     protected ?string $scanErrorMessage = null;
+
+    public function getDocBlockValue(): ?DocBlockValue
+    {
+        return $this->docBlockValue;
+    }
+
+    public function setDocBlockValue(?DocBlockValue $docBlockValue): self
+    {
+        $this->docBlockValue = $docBlockValue;
+        return $this;
+    }
 
     public function getPathInfo(): string
     {

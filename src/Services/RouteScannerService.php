@@ -35,11 +35,11 @@ class RouteScannerService
 
     private array $ignoreLike;
     private array $ignoreNotLike;
-    public array $routeFilesData;
+    public array $routeDocBlocks;
 
     public function __construct(
         private readonly RequestRulesNormalizerService $rulesNormalizerService,
-        private readonly DocStringParserService $docStringParserService,
+        private readonly DocBlockParserService $docBlockParserService,
         private readonly ConsoleOutput $output,
     ) {
         $red = new OutputFormatterStyle('red');
@@ -50,7 +50,7 @@ class RouteScannerService
 
         $this->ignoreLike = config('swagger.ignore.routes_like');
         $this->ignoreNotLike = config('swagger.ignore.routes_not_like');
-        $this->routeFilesData = [];
+        $this->routeDocBlocks = [];
     }
 
     /**
@@ -91,8 +91,11 @@ class RouteScannerService
                 ->setApiatoContainerName($apiatoContainerInfo->getContainerName());
         }
 
+        $uri = $route->uri();
+
         return $routeInfo
-            ->setPathInfo($route->uri())
+            ->setPathInfo($uri)
+            ->setDocBlockValue($this->routeDocBlocks[$uri] ?? null)
             ->setScanErrorMessage($errorMessage)
             ->setController($controller)
             ->setControllerMethod($controllerMethod)
@@ -286,13 +289,13 @@ class RouteScannerService
                 $path = $file->getPathName();
 
                 if (File::isReadable($path)) {
-                    $this->rememberRouteFileData($path);
+                    $this->rememberRouteDocBlock($path);
                 }
             }
         }
     }
 
-    private function rememberRouteFileData(string $routeFilePath): void
+    private function rememberRouteDocBlock(string $routeFilePath): void
     {
         $routeFileContents = File::get($routeFilePath);
         $routeDefinition = Str::match(self::ROUTE_URL_REGEX, $routeFileContents);
@@ -304,7 +307,7 @@ class RouteScannerService
             $routePath = Str::between($routeDefinition, $doubleQuote, $doubleQuote);
         }
 
-        $this->routeFilesData[$routePath] = $this->docStringParserService->parse($routeFileContents);
+        $this->routeDocBlocks[$routePath] = $this->docBlockParserService->parse($routeFileContents);
     }
 
 }

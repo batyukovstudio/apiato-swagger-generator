@@ -106,7 +106,6 @@ class SwaggerGeneratorService
             }
         }
 
-        dd($this->scannerService->routeFilesData);
         return $documentation
             ->setPaths($paths)
             ->setTags($tags)
@@ -133,12 +132,8 @@ class SwaggerGeneratorService
             $requestBody = self::generateOpenAPIRequestBody($rules);
         }
 
-        $summary = null !== $routeInfo->getScanErrorMessage()
-            ? 'GENERATION ERROR OCCURED: ' . $routeInfo->getScanErrorMessage()
-            : null;
-
         return OpenAPIRouteValue::run()
-            ->setSummary($summary)
+            ->setSummary(self::extractSummary($routeInfo))
             ->setTags(collect($tag))
             ->setParameters($parameters)
             ->setRequestBody($requestBody)
@@ -239,6 +234,20 @@ class SwaggerGeneratorService
                 ->setUrl(config('swagger.base_url'))
                 ->setDescription('Server'), // TODO
         ]);
+    }
+
+    private static function extractSummary(ApiatoRouteValue | DefaultRouteValue $routeInfo): ?string
+    {
+        $summary = null !== $routeInfo->getScanErrorMessage()
+            ? 'GENERATION ERROR OCCURED: ' . $routeInfo->getScanErrorMessage()
+            : null;
+
+        if (null === $summary) {
+            $summary = $routeInfo->getDocBlockValue()?->getApiSummary();
+        }
+
+        dump($routeInfo->getDocBlockValue()?->getApiSummary());
+        return $summary;
     }
 
 }
