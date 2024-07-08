@@ -71,7 +71,9 @@ class RouteResponseService
     {
         if ($this->isFirstLoad === true) {
             $loaded = Storage::disk('swagger')->get(self::RESPONSES_FILENAME);
-            $this->loadedResponses = json_decode($loaded, associative: true);
+            if (null !== $loaded) {
+                $this->loadedResponses = json_decode($loaded, associative: true);
+            }
             $this->isFirstLoad = false;
         }
 
