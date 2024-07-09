@@ -43,7 +43,8 @@
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="CACHE_DRIVER" value="array"/>
         <env name="DB_CONNECTION" value="test_database_connection"/>
-<!--         <env name="DB_DATABASE" value=":memory:"/> -->
+        <env name="TELESCOPE_DB_CONNECTION" value="test_database_connection"/>
+<!--        <env name="DB_DATABASE" value=":memory:"/> -->
 <!--        <env name="MAIL_MAILER" value="array"/>-->
 <!--        <env name="QUEUE_CONNECTION" value="sync"/>-->
 <!--        <env name="SESSION_DRIVER" value="array"/>-->

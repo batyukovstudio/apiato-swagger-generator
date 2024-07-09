@@ -17,8 +17,6 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use ReflectionException;
 use ReflectionMethod;
-use Symfony\Component\Console\Formatter\OutputFormatterStyle;
-use Symfony\Component\Console\Output\ConsoleOutput;
 
 class RouteScannerService
 {
@@ -29,14 +27,8 @@ class RouteScannerService
     public function __construct(
         private readonly RequestRulesNormalizerService $rulesNormalizerService,
         private readonly DocBlockParserService $docBlockParserService,
-        private readonly ConsoleOutput $output,
+        private readonly ConsoleService $consoleService,
     ) {
-        $red = new OutputFormatterStyle('red');
-        $yellow = new OutputFormatterStyle('yellow');
-
-        $this->output->getFormatter()->setStyle('red', $red);
-        $this->output->getFormatter()->setStyle('yellow', $yellow);
-
         $this->ignoreLike = config('swagger.ignore.routes_like');
         $this->ignoreNotLike = config('swagger.ignore.routes_not_like');
         $this->docBlocks = [];
@@ -259,7 +251,14 @@ class RouteScannerService
 
     private function skip(Route $route): void
     {
-        $this->output->writeln("<red>skipped:</red> <yellow>{$route->uri()}</yellow>");
+        $message = $this->consoleService->concatenate(
+            $this->consoleService->space(),
+            $this->consoleService->red('ignoring:'),
+            $this->consoleService->space(),
+            $route->uri()
+        );
+
+        $this->consoleService->writeln($message);
     }
 
     private function parseRouteFilesInContainer(string $uri, ApiatoContainerInfoValue $apiatoContainerInfo): void

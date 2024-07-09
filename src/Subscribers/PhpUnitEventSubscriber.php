@@ -33,6 +33,7 @@ final class PhpUnitEventSubscriber implements AllTestsFinishedSubscriber
 
     protected function createApplication(): void
     {
+        ini_set('memory_limit', '200M');
         $app = require base_path('bootstrap/app.php');
         $app->make(ApiatoConsoleKernel::class)->bootstrap();
     }
