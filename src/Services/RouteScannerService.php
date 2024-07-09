@@ -2,41 +2,36 @@
 
 namespace Batyukovstudio\ApiatoSwaggerGenerator\Services;
 
-use Batyukovstudio\ApiatoSwaggerGenerator\Enums\ParametersLocationsEnum;
+use Batyukovstudio\ApiatoSwaggerGenerator\Enums\OpenAPI\ParametersLocationsEnum;
 use Batyukovstudio\ApiatoSwaggerGenerator\Exceptions\RouteScanningException;
+use Batyukovstudio\ApiatoSwaggerGenerator\Values\ApiatoContainerInfoValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\ApiatoRouteValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\DefaultRouteValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\RouteInfoValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\RouteScanResultValue;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Routing\Controller;
-use Illuminate\Support\Collection;
-use Illuminate\Routing\Route;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Routing\Route;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
 use ReflectionException;
 use ReflectionMethod;
-use Illuminate\Support\Str;
-use Symfony\Component\Console\Output\ConsoleOutput;
-use Symfony\Component\Console\Formatter\OutputFormatterStyle;
 
 class RouteScannerService
 {
     private array $ignoreLike;
     private array $ignoreNotLike;
+    public array $docBlocks;
 
     public function __construct(
         private readonly RequestRulesNormalizerService $rulesNormalizerService,
-        private readonly ConsoleOutput $output,
+        private readonly DocBlockParserService $docBlockParserService,
+        private readonly ConsoleService $consoleService,
     ) {
-        $red = new OutputFormatterStyle('red');
-        $yellow = new OutputFormatterStyle('yellow');
-
-        $this->output->getFormatter()->setStyle('red', $red);
-        $this->output->getFormatter()->setStyle('yellow', $yellow);
-
         $this->ignoreLike = config('swagger.ignore.routes_like');
         $this->ignoreNotLike = config('swagger.ignore.routes_not_like');
+        $this->docBlocks = [];
     }
 
     /**
@@ -48,16 +43,17 @@ class RouteScannerService
         $request = null;
         $errorMessage = null;
         $rules = new Collection();
+        $uri = $route->uri();
         $action = $route->getAction();
 
-        if ($this->isIgnorable($route->uri()) || false === $this->hasValidController($action)) {
+        if ($this->isIgnorable($uri) || false === $this->hasValidController($action)) {
             $this->skip($route);
             return null;
         }
 
         $methods = $this->filterRouteMethods($route);
         $reflection = $this->extractRouteReflection($action);
-        $apiatoContainerName = $this->extractApiatoContainerName($reflection);
+        $apiatoContainerInfo = $this->extractApiatoContainerInfo($reflection);
         $controller = $this->extractRouteController($reflection);
         $controllerMethod = $reflection->getName();
         $dependencies = $this->extractControllerDependencies($reflection);
@@ -69,15 +65,17 @@ class RouteScannerService
             $errorMessage = $exception->getMessage();
         }
 
-        if (null === $apiatoContainerName) {
+        if (null === $apiatoContainerInfo) {
             $routeInfo = DefaultRouteValue::run();
         } else {
+            $this->parseRouteFilesInContainer($uri, $apiatoContainerInfo);
             $routeInfo = ApiatoRouteValue::run()
-                ->setApiatoContainerName($apiatoContainerName);
+                ->setApiatoContainerName($apiatoContainerInfo->getContainerName());
         }
 
         return $routeInfo
-            ->setPathInfo($route->uri())
+            ->setPathInfo($uri)
+            ->setDocBlockValue($this->docBlocks[$uri] ?? null)
             ->setScanErrorMessage($errorMessage)
             ->setController($controller)
             ->setControllerMethod($controllerMethod)
@@ -121,9 +119,9 @@ class RouteScannerService
         return $reflection;
     }
 
-    private function extractApiatoContainerName(ReflectionMethod $reflection): ?string
+    private function extractApiatoContainerInfo(ReflectionMethod $reflection): ?ApiatoContainerInfoValue
     {
-        $containerName = null;
+        $containerInfo = null;
 
         $controllerPathParts = explode('\\', $reflection->class);
         if (count($controllerPathParts) === 8) {
@@ -133,11 +131,13 @@ class RouteScannerService
                 $controllerPathParts[5] === 'API' &&
                 $controllerPathParts[6] === 'Controllers'
             ) {
-                $containerName = $controllerPathParts[3];
+                $containerInfo = ApiatoContainerInfoValue::run()
+                    ->setSectionName($controllerPathParts[2])
+                    ->setContainerName($controllerPathParts[3]);
             }
         }
 
-        return $containerName;
+        return $containerInfo;
     }
 
     /**
@@ -251,7 +251,35 @@ class RouteScannerService
 
     private function skip(Route $route): void
     {
-        $this->output->writeln("<red>skipped:</red> <yellow>{$route->uri()}</yellow>");
+        $message = $this->consoleService->concatenate(
+            $this->consoleService->space(),
+            $this->consoleService->red('ignoring:'),
+            $this->consoleService->space(),
+            $route->uri()
+        );
+
+        $this->consoleService->writeln($message);
     }
 
+    private function parseRouteFilesInContainer(string $uri, ApiatoContainerInfoValue $apiatoContainerInfo): void
+    {
+        $section = $apiatoContainerInfo->getSectionName();
+        $container = $apiatoContainerInfo->getContainerName();
+
+        $path = base_path("app/Containers/$section/$container/UI/API/Routes");
+
+        if (File::exists($path)) {
+            $routeFiles = File::allFiles($path);
+
+            /** @var Symfony\Component\Finder\SplFileInfo $file */
+            foreach ($routeFiles as $file) {
+                $path = $file->getPathName();
+
+                if (File::isReadable($path)) {
+                    $routeFileContents = File::get($path);
+                    $this->docBlocks[$uri] = $this->docBlockParserService->parse($routeFileContents);
+                }
+            }
+        }
+    }
 }

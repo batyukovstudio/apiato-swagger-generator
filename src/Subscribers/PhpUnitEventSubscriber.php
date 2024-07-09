@@ -4,6 +4,7 @@ namespace Batyukovstudio\ApiatoSwaggerGenerator\Subscribers;
 
 use Batyukovstudio\ApiatoSwaggerGenerator\Services\SwaggerGeneratorService;
 use Illuminate\Contracts\Console\Kernel as ApiatoConsoleKernel;
+use Illuminate\Support\Facades\Artisan;
 use PHPUnit\Event\Application\Finished;
 use PHPUnit\Event\Application\FinishedSubscriber as AllTestsFinishedSubscriber;
 use Symfony\Component\Console\Formatter\OutputFormatterStyle;
@@ -24,11 +25,15 @@ final class PhpUnitEventSubscriber implements AllTestsFinishedSubscriber
     public function notify(Finished $event): void
     {
         $this->createApplication();
-        app(SwaggerGeneratorService::class)->saveResponsesToDisk();;
+
+        app(SwaggerGeneratorService::class)->saveResponsesToDisk();
+
+        Artisan::call('swagger:generate');
     }
 
     protected function createApplication(): void
     {
+        ini_set('memory_limit', '200M');
         $app = require base_path('bootstrap/app.php');
         $app->make(ApiatoConsoleKernel::class)->bootstrap();
     }

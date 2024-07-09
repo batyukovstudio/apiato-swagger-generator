@@ -2,7 +2,7 @@
 
 namespace Batyukovstudio\ApiatoSwaggerGenerator\Services;
 
-use Batyukovstudio\ApiatoSwaggerGenerator\Enums\ParametersLocationsEnum;
+use Batyukovstudio\ApiatoSwaggerGenerator\Enums\OpenAPI\ParametersLocationsEnum;
 use Batyukovstudio\ApiatoSwaggerGenerator\Enums\SwaggerGeneratorMiddlewareStatesEnum;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\ApiatoRouteValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\DefaultRouteValue;
@@ -20,8 +20,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Collection;
-use Symfony\Component\Console\Formatter\OutputFormatterStyle;
-use Symfony\Component\Console\Output\ConsoleOutput;
 
 
 class SwaggerGeneratorService
@@ -45,13 +43,8 @@ class SwaggerGeneratorService
     public function __construct(
         private readonly RouteScannerService $scannerService,
         private readonly RouteResponseService $responseService,
-        private readonly ConsoleOutput $output,
+        private readonly ConsoleService $consoleService,
     ) {
-        $green = new OutputFormatterStyle('green');
-        $yellow = new OutputFormatterStyle('yellow');
-
-        $this->output->getFormatter()->setStyle('green', $green);
-        $this->output->getFormatter()->setStyle('yellow', $yellow);
     }
 
     public function pushResponse(Request $request, JsonResponse $response): void
@@ -62,9 +55,7 @@ class SwaggerGeneratorService
     public function saveResponsesToDisk(): void
     {
         $this->responseService->saveResponsesToDisk();
-        $status = "<yellow>apiato-swagger-generator: </yellow>";
-        $message = "<green>Ответы, полученные с Route-тестов, успешно сохранены на диск</green>\n";
-        $this->output->writeln($status . $message);
+        $this->pushSuccessfullSavingResponsesToDiskMessage();
     }
 
     public function generate(): array
@@ -75,6 +66,8 @@ class SwaggerGeneratorService
         $paths = $documentation->getPaths();
         $tags = new Collection();
 
+        $this->pushRouteScanStartMessage();
+
         /** @var Route $route */
         foreach ($routes as $route) {
             $uri = $route->uri();
@@ -83,11 +76,7 @@ class SwaggerGeneratorService
                 continue;
             }
 
-            $tag = match($routeInfo::class) {
-                ApiatoRouteValue::class => $routeInfo->getApiatoContainerName(),
-                DefaultRouteValue::class => 'Default',
-            };
-
+            $tag = self::extractTag($routeInfo);
             if ($tags->contains($tag) === false) {
                 $tags->push($tag);
             }
@@ -105,6 +94,9 @@ class SwaggerGeneratorService
                 }
             }
         }
+
+        $this->pushRouteScanFinishMessage();
+        $this->pushSuccessfullGenerationMessage();
 
         return $documentation
             ->setPaths($paths)
@@ -132,12 +124,9 @@ class SwaggerGeneratorService
             $requestBody = self::generateOpenAPIRequestBody($rules);
         }
 
-        $summary = null !== $routeInfo->getScanErrorMessage()
-            ? 'GENERATION ERROR OCCURED: ' . $routeInfo->getScanErrorMessage()
-            : null;
-
         return OpenAPIRouteValue::run()
-            ->setSummary($summary)
+            ->setSummary(self::extractSummary($routeInfo))
+            ->setDescription(self::extractDocBlockDescription($routeInfo))
             ->setTags(collect($tag))
             ->setParameters($parameters)
             ->setRequestBody($requestBody)
@@ -215,7 +204,6 @@ class SwaggerGeneratorService
     private static function generateOpenAPI(): OpenAPIValue
     {
         return OpenAPIValue::run()
-//            ->setOpenapi('3.23.8')
             ->setOpenapi(config('swagger.openapi.version'))
             ->setInfo(self::generateOpenAPIInfo())
             ->setServers(self::generateOpenAPIServers())
@@ -238,6 +226,103 @@ class SwaggerGeneratorService
                 ->setUrl(config('swagger.base_url'))
                 ->setDescription('Server'), // TODO
         ]);
+    }
+
+    private static function extractTag(ApiatoRouteValue | DefaultRouteValue $routeInfo): ?string
+    {
+        $tag = $routeInfo
+            ->getDocBlockValue()
+            ?->getApiGroup()
+            ->getGroupName();
+
+        if (null === $tag) {
+            $tag = match($routeInfo::class) {
+                ApiatoRouteValue::class => $routeInfo->getApiatoContainerName(),
+                DefaultRouteValue::class => 'Default',
+            };
+        }
+
+        return $tag;
+    }
+
+    private static function extractSummary(ApiatoRouteValue | DefaultRouteValue $routeInfo): ?string
+    {
+        $summary = null !== $routeInfo->getScanErrorMessage()
+            ? 'GENERATION ERROR OCCURED: ' . $routeInfo->getScanErrorMessage()
+            : null;
+
+        if (null === $summary) {
+            $summary = $routeInfo
+                ->getDocBlockValue()
+                ?->getApiSummary()
+                ->getText();
+        }
+
+        return $summary;
+    }
+
+    private static function extractDocBlockDescription(ApiatoRouteValue | DefaultRouteValue $routeInfo): ?string
+    {
+        return $routeInfo
+            ->getDocBlockValue()
+            ?->getApiDescription()
+            ->getText();
+    }
+
+    private function pushSuccessfullSavingResponsesToDiskMessage(): void
+    {
+        $message = $this->consoleService->concatenate(
+            $this->consoleService->newline(),
+            $this->consoleService->space(),
+            $this->consoleService->yellow('apiato-swagger-generator:'),
+            $this->consoleService->space(),
+            $this->consoleService->green('Ответы, полученные с Route-тестов, успешно сохранены на диск'),
+            $this->consoleService->newline(),
+        );
+
+        $this->consoleService->writeln($message);
+    }
+
+    private function pushRouteScanStartMessage(): void
+    {
+        $message = $this->consoleService->concatenate(
+            $this->consoleService->newline(),
+            $this->consoleService->space(),
+            $this->consoleService->yellow('apiato-swagger-generator:'),
+            $this->consoleService->space(),
+            $this->consoleService->green('Сканирование маршрутов'),
+            $this->consoleService->newline(),
+        );
+
+        $this->consoleService->writeln($message);
+    }
+
+    private function pushRouteScanFinishMessage(): void
+    {
+        $message = $this->consoleService->concatenate(
+            $this->consoleService->newline(),
+            $this->consoleService->space(),
+            $this->consoleService->yellow('apiato-swagger-generator:'),
+            $this->consoleService->space(),
+            $this->consoleService->green('Сканирование маршрутов завершено'),
+        );
+
+        $this->consoleService->writeln($message);
+    }
+
+    private function pushSuccessfullGenerationMessage(): void
+    {
+        $message = $this->consoleService->concatenate(
+            $this->consoleService->space(),
+            $this->consoleService->yellow('apiato-swagger-generator:'),
+            $this->consoleService->space(),
+            $this->consoleService->green('Генерация завершена успешно, файл:'),
+            $this->consoleService->space(),
+            $this->consoleService->blue(base_path(config('swagger.storage_endpoint'))),
+            $this->consoleService->newline(),
+        );
+
+        $this->consoleService->writeln($message);
     }
 
 }
