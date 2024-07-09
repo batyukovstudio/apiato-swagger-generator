@@ -35,14 +35,15 @@ class RouteResponseService
             $responseContent = $responseContent['data'];
         }
 
-        $pathInfo = $request->route()->uri();
+        $pathInfo = $request->route()?->uri();
+        if (null !== $pathInfo) {
+            if (false === isset(self::$RESPONSES[$pathInfo])) {
+                self::$RESPONSES[$pathInfo] = [];
+            }
 
-        if (false === isset(self::$RESPONSES[$pathInfo])) {
-            self::$RESPONSES[$pathInfo] = [];
+            $statusCode = (string)$response->getStatusCode();
+            self::$RESPONSES[$pathInfo][$statusCode] = $responseContent;
         }
-
-        $statusCode = (string)$response->getStatusCode();
-        self::$RESPONSES[$pathInfo][$statusCode] = $responseContent;
     }
 
     public function saveResponsesToDisk(): void
