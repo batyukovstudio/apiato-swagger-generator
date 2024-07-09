@@ -22,20 +22,9 @@ use Symfony\Component\Console\Output\ConsoleOutput;
 
 class RouteScannerService
 {
-    /**
-     * Route:: — начало строки, ищем точное совпадение с Route::.
-     * \w+ — любое слово (имя метода, например, get, post, any и т. д.).
-     * \s* — возможные пробелы.
-     * [(] — открывающая круглая скобка.
-     * \s* — возможные пробелы.
-     * [\'"] — открывающая кавычка (одинарная или двойная).
-     * [^\'"]* — любой символ, кроме одинарной или двойной кавычки (содержимое параметра).
-     */
-    private const ROUTE_URL_REGEX = '/Route::\w+\s*[(]\s*[\'\"][^\'\"]*[\'\"]\s*/';
-
     private array $ignoreLike;
     private array $ignoreNotLike;
-    public array $routeDocBlocks;
+    public array $docBlocks;
 
     public function __construct(
         private readonly RequestRulesNormalizerService $rulesNormalizerService,
@@ -50,7 +39,7 @@ class RouteScannerService
 
         $this->ignoreLike = config('swagger.ignore.routes_like');
         $this->ignoreNotLike = config('swagger.ignore.routes_not_like');
-        $this->routeDocBlocks = [];
+        $this->docBlocks = [];
     }
 
     /**
@@ -62,9 +51,10 @@ class RouteScannerService
         $request = null;
         $errorMessage = null;
         $rules = new Collection();
+        $uri = $route->uri();
         $action = $route->getAction();
 
-        if ($this->isIgnorable($route->uri()) || false === $this->hasValidController($action)) {
+        if ($this->isIgnorable($uri) || false === $this->hasValidController($action)) {
             $this->skip($route);
             return null;
         }
@@ -86,16 +76,14 @@ class RouteScannerService
         if (null === $apiatoContainerInfo) {
             $routeInfo = DefaultRouteValue::run();
         } else {
-            $this->parseRouteFilesInContainer($apiatoContainerInfo);
+            $this->parseRouteFilesInContainer($uri, $apiatoContainerInfo);
             $routeInfo = ApiatoRouteValue::run()
                 ->setApiatoContainerName($apiatoContainerInfo->getContainerName());
         }
 
-        $uri = $route->uri();
-
         return $routeInfo
             ->setPathInfo($uri)
-            ->setDocBlockValue($this->routeDocBlocks[$uri] ?? null)
+            ->setDocBlockValue($this->docBlocks[$uri] ?? null)
             ->setScanErrorMessage($errorMessage)
             ->setController($controller)
             ->setControllerMethod($controllerMethod)
@@ -274,7 +262,7 @@ class RouteScannerService
         $this->output->writeln("<red>skipped:</red> <yellow>{$route->uri()}</yellow>");
     }
 
-    private function parseRouteFilesInContainer(ApiatoContainerInfoValue $apiatoContainerInfo): void
+    private function parseRouteFilesInContainer(string $uri, ApiatoContainerInfoValue $apiatoContainerInfo): void
     {
         $section = $apiatoContainerInfo->getSectionName();
         $container = $apiatoContainerInfo->getContainerName();
@@ -289,25 +277,10 @@ class RouteScannerService
                 $path = $file->getPathName();
 
                 if (File::isReadable($path)) {
-                    $this->rememberRouteDocBlock($path);
+                    $routeFileContents = File::get($path);
+                    $this->docBlocks[$uri] = $this->docBlockParserService->parse($routeFileContents);
                 }
             }
         }
     }
-
-    private function rememberRouteDocBlock(string $routeFilePath): void
-    {
-        $routeFileContents = File::get($routeFilePath);
-        $routeDefinition = Str::match(self::ROUTE_URL_REGEX, $routeFileContents);
-        $singleQuote = '\'';
-        $doubleQuote = '"';
-        $routePath = Str::between($routeDefinition, $singleQuote, $singleQuote);
-
-        if ($routePath === $routeDefinition || $routePath === '') {
-            $routePath = Str::between($routeDefinition, $doubleQuote, $doubleQuote);
-        }
-
-        $this->routeDocBlocks[$routePath] = $this->docBlockParserService->parse($routeFileContents);
-    }
-
 }

@@ -83,11 +83,7 @@ class SwaggerGeneratorService
                 continue;
             }
 
-            $tag = match($routeInfo::class) {
-                ApiatoRouteValue::class => $routeInfo->getApiatoContainerName(),
-                DefaultRouteValue::class => 'Default',
-            };
-
+            $tag = self::extractTag($routeInfo);
             if ($tags->contains($tag) === false) {
                 $tags->push($tag);
             }
@@ -134,6 +130,7 @@ class SwaggerGeneratorService
 
         return OpenAPIRouteValue::run()
             ->setSummary(self::extractSummary($routeInfo))
+            ->setDescription(self::extractDocBlockDescription($routeInfo))
             ->setTags(collect($tag))
             ->setParameters($parameters)
             ->setRequestBody($requestBody)
@@ -236,6 +233,23 @@ class SwaggerGeneratorService
         ]);
     }
 
+    private static function extractTag(ApiatoRouteValue | DefaultRouteValue $routeInfo): ?string
+    {
+        $tag = $routeInfo
+            ->getDocBlockValue()
+            ?->getApiGroup()
+            ->getGroupName();
+
+        if (null === $tag) {
+            $tag = match($routeInfo::class) {
+                ApiatoRouteValue::class => $routeInfo->getApiatoContainerName(),
+                DefaultRouteValue::class => 'Default',
+            };
+        }
+
+        return $tag;
+    }
+
     private static function extractSummary(ApiatoRouteValue | DefaultRouteValue $routeInfo): ?string
     {
         $summary = null !== $routeInfo->getScanErrorMessage()
@@ -243,11 +257,21 @@ class SwaggerGeneratorService
             : null;
 
         if (null === $summary) {
-            $summary = $routeInfo->getDocBlockValue()?->getApiSummary();
+            $summary = $routeInfo
+                ->getDocBlockValue()
+                ?->getApiSummary()
+                ->getText();
         }
 
-        dump($routeInfo->getDocBlockValue()?->getApiSummary());
         return $summary;
+    }
+
+    private static function extractDocBlockDescription(ApiatoRouteValue | DefaultRouteValue $routeInfo): ?string
+    {
+        return $routeInfo
+            ->getDocBlockValue()
+            ?->getApiDescription()
+            ->getText();
     }
 
 }

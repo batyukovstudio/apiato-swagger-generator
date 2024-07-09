@@ -1,10 +1,10 @@
 <?php
 
-namespace Batyukovstudio\ApiatoSwaggerGenerator\Enums;
+namespace Batyukovstudio\ApiatoSwaggerGenerator\Enums\DocBlocks;
 
 enum DocBockTagsEnum: string
 {
-    case API_GROUP = 'apiGroup';
-    case API_SUMMARY = 'apiSummary';
-    case API_DESCRIPTION = 'apiDescription';
+    case API_GROUP = 'swaggerGroup';
+    case API_SUMMARY = 'swaggerSummary';
+    case API_DESCRIPTION = 'swaggerDescription';
 }

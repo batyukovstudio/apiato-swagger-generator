@@ -6,8 +6,9 @@ use Batyukovstudio\ApiatoSwaggerGenerator\Values\DocBlocks\ApiDescriptionValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\DocBlocks\ApiGroupValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\DocBlocks\ApiSummaryValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\DocBlocks\DocBlockValue;
-use Batyukovstudio\ApiatoSwaggerGenerator\Enums\DocBockTagsEnum;
+use Batyukovstudio\ApiatoSwaggerGenerator\Enums\DocBlocks\DocBockTagsEnum;
 use phpDocumentor\Reflection\DocBlockFactory;
+use phpDocumentor\Reflection\DocBlock;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -29,9 +30,9 @@ class DocBlockParserService
         $apiDescription = null;
 
         /** @var phpDocumentor\Reflection\DocBlock\Description $tagDescription */
-        $docblock = self::extractDocBlock($fileContents);
-        if (null !== $docblock) {
-            foreach ($docblock->getTags() as $tag) {
+        $docBlock = self::extractDocBlock($fileContents);
+        if (null !== $docBlock) {
+            foreach ($docBlock->getTags() as $tag) {
                 $tagName = $tag->getName();
                 $tagDescription = (string) $tag->getDescription();  // (string) обязательно, тут перегрузка оператора
 
@@ -52,30 +53,34 @@ class DocBlockParserService
             }
         }
 
-        $docBlock = null;
+        $docBlockTagsCount = count(Arr::whereNotNull([
+            $apiGroup,
+            $apiSummary,
+            $apiDescription,
+        ]));
 
-        if ($apiGroup !== null ||
-            $apiSummary !== null ||
-            $apiDescription !== null
-        ) {
+        $docBlock = null;
+        if ($docBlockTagsCount > 0) {
             $docBlock = DocBlockValue::run()
                 ->setApiGroup($apiGroup)
                 ->setApiSummary($apiSummary)
                 ->setApiDescription($apiDescription);
         }
 
-        return $docblock;
+        return $docBlock;
     }
 
-    private static function extractDocBlock(string $fileContents): ?phpDocumentor\Reflection\DocBlock
+    private static function extractDocBlock(string $fileContents): ?DocBlock
     {
         $docBlock = null;
 
         $docBlockText = Str::match(self::DOC_STRING_REGEX, $fileContents);
         if (Str::length($docBlockText) > 0) {
-            /** @var phpDocumentor\Reflection\DocBlock $docblock */
-            $factory = DocBlockFactory::createInstance();
-            $docblock = $factory->create($docBlockText);
+            if (false === Str::contains($docBlockText, "\n//")) {
+                /** @var DocBlock $docBlock */
+                $factory = DocBlockFactory::createInstance();
+                $docBlock = $factory->create($docBlockText);
+            }
         }
 
         return $docBlock;
