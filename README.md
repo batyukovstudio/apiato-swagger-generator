@@ -14,7 +14,6 @@ To install the package via composer, Run:
 ```bash
 composer require batyukovstudio/apiato-swagger-generator
 ```
-
 ### Usage
 Generate documentation base:
 ```bash
