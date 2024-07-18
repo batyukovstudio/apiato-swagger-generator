@@ -286,6 +286,10 @@ class RouteScannerService
                 }
 
                 $docBlock = $this->docBlockParserService->parse($routeFileContents);
+                if (null === $docBlock && isset($this->docBlocks[$uri])) {
+                    continue;
+                }
+
                 $this->docBlocks[$uri] = $docBlock;
             }
         }
