@@ -41,14 +41,17 @@ class DocBlockParserService
                     case DocBockTagsEnum::API_GROUP->value:
                         $apiGroup = ApiGroupValue::run()
                             ->setGroupName($tagDescription);
+                        break;
 
                     case DocBockTagsEnum::API_SUMMARY->value:
                         $apiSummary = ApiSummaryValue::run()
                             ->setText($tagDescription);
+                        break;
 
                     case DocBockTagsEnum::API_DESCRIPTION->value:
                         $apiDescription = ApiDescriptionValue::run()
                             ->setText($tagDescription);
+                        break;
                 }
             }
         }
