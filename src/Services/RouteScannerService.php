@@ -275,11 +275,39 @@ class RouteScannerService
             foreach ($routeFiles as $file) {
                 $path = $file->getPathName();
 
-                if (File::isReadable($path)) {
-                    $routeFileContents = File::get($path);
-                    $this->docBlocks[$uri] = $this->docBlockParserService->parse($routeFileContents);
+                if (false === File::isReadable($path)) {
+                    continue;
                 }
+
+                $pathAlias = self::extractRealPathAlias($uri);
+                $routeFileContents = File::get($path);
+                if (false === Str::contains($routeFileContents, $pathAlias)) {
+                    continue;
+                }
+
+                $docBlock = $this->docBlockParserService->parse($routeFileContents);
+                $this->docBlocks[$uri] = $docBlock;
             }
         }
+    }
+
+    /**
+     * @param string $uri
+     * @return string
+     *
+     * @description
+     * извлекает из маршрута вида api/v1/route только route (всё после api/v{version}/)
+     */
+    private static function extractRealPathAlias(string $uri): string
+    {
+        $prefix = 'api/';
+        $pathAlias = $uri;
+        if (Str::contains($uri, $prefix)) {
+            $pathAlias = Str::replaceFirst($prefix, '', $uri);
+            $firstSlashIndex = Str::position($pathAlias, '/');
+            $pathAlias = Str::substr($pathAlias, $firstSlashIndex + 1, Str::length($pathAlias));
+        }
+
+        return $pathAlias;
     }
 }
