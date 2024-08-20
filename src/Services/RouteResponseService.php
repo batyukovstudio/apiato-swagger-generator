@@ -60,9 +60,11 @@ class RouteResponseService
         $responseGroup = $loadedResponseGroups[$pathInfo] ?? [];
 
         foreach ($responseGroup as $status => $content) {
-            $responses->push(ResponseValue::run()
-                ->setStatus($status)
-                ->setContent($content));
+            if (null !== $content) {
+                $responses->push(ResponseValue::run()
+                    ->setStatus($status)
+                    ->setContent($content));
+            }
         }
 
         return $responses;
