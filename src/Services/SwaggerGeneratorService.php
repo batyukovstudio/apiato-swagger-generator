@@ -266,7 +266,7 @@ class SwaggerGeneratorService
         return $routeInfo
             ->getDocBlockValue()
             ?->getApiDescription()
-            ->getText();
+            ?->getText();
     }
 
     private function pushSuccessfullSavingResponsesToDiskMessage(): void
