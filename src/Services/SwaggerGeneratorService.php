@@ -233,7 +233,7 @@ class SwaggerGeneratorService
         $tag = $routeInfo
             ->getDocBlockValue()
             ?->getApiGroup()
-            ->getGroupName();
+            ?->getGroupName();
 
         if (null === $tag) {
             $tag = match($routeInfo::class) {
@@ -255,7 +255,7 @@ class SwaggerGeneratorService
             $summary = $routeInfo
                 ->getDocBlockValue()
                 ?->getApiSummary()
-                ->getText();
+                ?->getText();
         }
 
         return $summary;
