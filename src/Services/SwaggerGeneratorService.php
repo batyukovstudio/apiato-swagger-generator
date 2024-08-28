@@ -47,9 +47,11 @@ class SwaggerGeneratorService
     ) {
     }
 
-    public function pushResponse(Request $request, JsonResponse $response): void
+    public function pushResponse(Request $request, $response): void
     {
-        $this->responseService->pushResponse($request, $response);
+        if ($response instanceof JsonResponse) {
+            $this->responseService->pushResponse($request, $response);
+        }
     }
 
     public function saveResponsesToDisk(): void
