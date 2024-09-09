@@ -11,6 +11,7 @@ class Authenticate
 {
     public function handle(Request $request, \Closure $next, ?string ...$guards): Response|RedirectResponse|null
     {
+        $response = null;
         $user = Auth::guard('web')->user();
 
         if (null === $user || false === $user?->hasRole('admin')) {

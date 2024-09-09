@@ -7,6 +7,7 @@ use Batyukovstudio\ApiatoSwaggerGenerator\Exceptions\RouteScanningException;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\ApiatoContainerInfoValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\ApiatoRouteValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\DefaultRouteValue;
+use Batyukovstudio\ApiatoSwaggerGenerator\Values\PathInfoValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\RouteInfoValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\RouteScanResultValue;
 use Illuminate\Foundation\Http\FormRequest;
@@ -22,6 +23,8 @@ class RouteScannerService
 {
     private array $ignoreLike;
     private array $ignoreNotLike;
+    private string $routeNameRegex = "/Route::[\s\S]+?\(['\"]([\s\S]+?)['\"]/";
+    private string $routeMethodRegex = "/Route::([\s\S]+?)\(['\"][\s\S]+?['\"]/";
     public array $docBlocks;
 
     public function __construct(
@@ -73,9 +76,13 @@ class RouteScannerService
                 ->setApiatoContainerName($apiatoContainerInfo->getContainerName());
         }
 
+        $docBlocks = isset($this->docBlocks[$uri])
+            ? collect($this->docBlocks[$uri])
+            : new Collection();
+
         return $routeInfo
             ->setPathInfo($uri)
-            ->setDocBlockValue($this->docBlocks[$uri] ?? null)
+            ->setDocBlocks($docBlocks)
             ->setScanErrorMessage($errorMessage)
             ->setController($controller)
             ->setControllerMethod($controllerMethod)
@@ -274,23 +281,23 @@ class RouteScannerService
             /** @var Symfony\Component\Finder\SplFileInfo $file */
             foreach ($routeFiles as $file) {
                 $path = $file->getPathName();
-
                 if (false === File::isReadable($path)) {
                     continue;
                 }
 
-                $pathAlias = self::extractRealPathAlias($uri);
                 $routeFileContents = File::get($path);
-                if (false === Str::contains($routeFileContents, $pathAlias)) {
+                $pathInfo = self::extractPathInfo($uri, $routeFileContents);
+                $method = $pathInfo?->getMethod();
+
+                if ($method === null || null === $pathInfo || isset($this->docBlocks[$uri][$method])) {
                     continue;
                 }
 
                 $docBlock = $this->docBlockParserService->parse($routeFileContents);
-                if (null === $docBlock && isset($this->docBlocks[$uri])) {
-                    continue;
+                if (!isset($this->docBlocks[$uri])) {
+                    $this->docBlocks[$uri] = [];
                 }
-
-                $this->docBlocks[$uri] = $docBlock;
+                $this->docBlocks[$uri][$method] = $docBlock;
             }
         }
     }
@@ -302,16 +309,26 @@ class RouteScannerService
      * @description
      * извлекает из маршрута вида api/v1/route только route (всё после api/v{version}/)
      */
-    private static function extractRealPathAlias(string $uri): string
+    private function extractPathInfo(string $uri, string $routeFileContents): ?PathInfoValue
     {
-        $prefix = 'api/';
-        $pathAlias = $uri;
-        if (Str::contains($uri, $prefix)) {
-            $pathAlias = Str::replaceFirst($prefix, '', $uri);
-            $firstSlashIndex = Str::position($pathAlias, '/');
-            $pathAlias = Str::substr($pathAlias, $firstSlashIndex + 1, Str::length($pathAlias));
+        if (Str::startsWith($uri, 'api/')) {
+            $uri = Str::afterLast($uri, 'api/');
+        }
+        if (Str::startsWith($uri, 'v1/')) {
+            $uri = Str::afterLast($uri, 'v1/');
         }
 
-        return $pathAlias;
+        $routeName = Str::match($this->routeNameRegex, $routeFileContents);
+        $routeMethod = Str::match($this->routeMethodRegex, $routeFileContents);
+
+        if (empty($routeMethod) || empty($routeName) || $uri !== $routeName) {
+            $result = null;
+        } else {
+            $result = PathInfoValue::run()
+                ->setName($routeName)
+                ->setMethod($routeMethod);
+        }
+
+        return $result;
     }
 }
