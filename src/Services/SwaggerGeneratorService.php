@@ -21,6 +21,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 
 class SwaggerGeneratorService
@@ -79,8 +80,13 @@ class SwaggerGeneratorService
                 continue;
             }
 
-            if (!isset($paths[$uri])) {
-                $paths[$uri] = new Collection();
+            $displayUri = $uri;
+            if (false === Str::startsWith($displayUri, '/')) {
+                $displayUri = "/{$displayUri}";
+            }
+
+            if (!isset($paths[$displayUri])) {
+                $paths[$displayUri] = new Collection();
             }
 
             /** @var Collection $routeMethods */
@@ -93,7 +99,11 @@ class SwaggerGeneratorService
                 }
 
                 if ($routeMethods->contains($method)) {
-                    $paths[$uri][$method] = $this->generateOpenAPIRoute($tag, $method, $routeInfo);
+                    if (!isset($paths[$displayUri])) {
+                        $paths[$displayUri] = [];
+                    }
+
+                    $paths[$displayUri][$method] = $this->generateOpenAPIRoute($tag, $method, $routeInfo);
                 }
             }
         }
