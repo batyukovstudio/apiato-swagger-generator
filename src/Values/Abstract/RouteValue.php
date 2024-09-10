@@ -13,17 +13,17 @@ abstract class RouteValue extends Value
     protected Collection $methods;
     protected Collection $rules;
     protected string $pathInfo;
-    protected ?DocBlockValue $docBlockValue;
+    protected ?Collection $docBlocks;
     protected ?string $scanErrorMessage = null;
 
-    public function getDocBlockValue(): ?DocBlockValue
+    public function getDocBlocks(): Collection
     {
-        return $this->docBlockValue;
+        return $this->docBlocks;
     }
 
-    public function setDocBlockValue(?DocBlockValue $docBlockValue): self
+    public function setDocBlocks(Collection $docBlocks): self
     {
-        $this->docBlockValue = $docBlockValue;
+        $this->docBlocks = $docBlocks;
         return $this;
     }
 

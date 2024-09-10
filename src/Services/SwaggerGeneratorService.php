@@ -6,6 +6,7 @@ use Batyukovstudio\ApiatoSwaggerGenerator\Enums\OpenAPI\ParametersLocationsEnum;
 use Batyukovstudio\ApiatoSwaggerGenerator\Enums\SwaggerGeneratorMiddlewareStatesEnum;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\ApiatoRouteValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\DefaultRouteValue;
+use Batyukovstudio\ApiatoSwaggerGenerator\Values\DocBlocks\DocBlockValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\OpenAPIInfoValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\OpenAPIServerValue;
 use Batyukovstudio\ApiatoSwaggerGenerator\Values\OpenAPI\OpenAPIValue;
@@ -20,6 +21,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 
 class SwaggerGeneratorService
@@ -78,21 +80,30 @@ class SwaggerGeneratorService
                 continue;
             }
 
-            $tag = self::extractTag($routeInfo);
-            if ($tags->contains($tag) === false) {
-                $tags->push($tag);
+            $displayUri = $uri;
+            if (false === Str::startsWith($displayUri, '/')) {
+                $displayUri = "/{$displayUri}";
             }
 
-            if (!isset($paths[$uri])) {
-                $paths[$uri] = new Collection();
+            if (!isset($paths[$displayUri])) {
+                $paths[$displayUri] = new Collection();
             }
 
             /** @var Collection $routeMethods */
             $routeMethods = $routeInfo->getMethods();
 
             foreach (self::METHODS_ORDER as $method) {
+                $tag = self::extractTag($method, $routeInfo);
+                if ($tags->contains($tag) === false) {
+                    $tags->push($tag);
+                }
+
                 if ($routeMethods->contains($method)) {
-                    $paths[$uri][$method] = $this->generateOpenAPIRoute($tag, $method, $routeInfo);
+                    if (!isset($paths[$displayUri])) {
+                        $paths[$displayUri] = [];
+                    }
+
+                    $paths[$displayUri][$method] = $this->generateOpenAPIRoute($tag, $method, $routeInfo);
                 }
             }
         }
@@ -127,8 +138,8 @@ class SwaggerGeneratorService
         }
 
         return OpenAPIRouteValue::run()
-            ->setSummary(self::extractSummary($routeInfo))
-            ->setDescription(self::extractDocBlockDescription($routeInfo))
+            ->setSummary(self::extractSummary($method, $routeInfo))
+            ->setDescription(self::extractDocBlockDescription($method, $routeInfo))
             ->setTags(collect($tag))
             ->setParameters($parameters)
             ->setRequestBody($requestBody)
@@ -230,10 +241,13 @@ class SwaggerGeneratorService
         ]);
     }
 
-    private static function extractTag(ApiatoRouteValue | DefaultRouteValue $routeInfo): ?string
+    private static function extractTag(
+        string $method, ApiatoRouteValue | DefaultRouteValue $routeInfo): ?string
     {
-        $tag = $routeInfo
-            ->getDocBlockValue()
+        /** @var null|DocBlockValue $docBlock */
+        $docBlock = $routeInfo->getDocBlocks()[$method] ?? null;
+
+        $tag = $docBlock
             ?->getApiGroup()
             ?->getGroupName();
 
@@ -247,15 +261,18 @@ class SwaggerGeneratorService
         return $tag;
     }
 
-    private static function extractSummary(ApiatoRouteValue | DefaultRouteValue $routeInfo): ?string
+    private static function extractSummary(
+        string $method, ApiatoRouteValue | DefaultRouteValue $routeInfo): ?string
     {
+        /** @var null|DocBlockValue $docBlock */
+        $docBlock = $routeInfo->getDocBlocks()[$method] ?? null;
+
         $summary = null !== $routeInfo->getScanErrorMessage()
             ? 'GENERATION ERROR OCCURED: ' . $routeInfo->getScanErrorMessage()
             : null;
 
         if (null === $summary) {
-            $summary = $routeInfo
-                ->getDocBlockValue()
+            $summary = $docBlock
                 ?->getApiSummary()
                 ?->getText();
         }
@@ -263,10 +280,13 @@ class SwaggerGeneratorService
         return $summary;
     }
 
-    private static function extractDocBlockDescription(ApiatoRouteValue | DefaultRouteValue $routeInfo): ?string
+    private static function extractDocBlockDescription(
+        string $method, ApiatoRouteValue | DefaultRouteValue $routeInfo): ?string
     {
-        return $routeInfo
-            ->getDocBlockValue()
+        /** @var null|DocBlockValue $docBlock */
+        $docBlock = $routeInfo->getDocBlocks()[$method] ?? null;
+
+        return $docBlock
             ?->getApiDescription()
             ?->getText();
     }
