@@ -28,7 +28,9 @@ final class PhpUnitEventSubscriber implements AllTestsFinishedSubscriber
 
         app(SwaggerGeneratorService::class)->saveResponsesToDisk();
 
-        Artisan::call('swagger:generate');
+        if (true === config('swagger.autogenerate_after_tests')) {
+            Artisan::call('swagger:generate');
+        }
     }
 
     protected function createApplication(): void
