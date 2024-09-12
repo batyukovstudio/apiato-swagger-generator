@@ -2,6 +2,8 @@
 
 return [
 
+    'autogenerate_after_tests' => true,
+
     'storage_driver' => 'local',
     'storage_path' => storage_path('swagger'),
     'documentation_filename' => 'documentation.json',
