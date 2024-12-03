@@ -14,7 +14,17 @@ class Authenticate
         $response = null;
         $user = Auth::guard('web')->user();
 
-        if (null === $user || false === $user?->hasRole('admin')) {
+        $hasAccess = false;
+
+        if (
+            $user !== null &&
+            method_exists($user, 'hasAdminRoles') &&
+            $user->hasAdminRoles() === true
+        ) {
+            $hasAccess = true;
+        }
+
+        if ($hasAccess === false) {
             return redirect()->to('admin/login');
         }
 
