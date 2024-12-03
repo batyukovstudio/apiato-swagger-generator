@@ -55,4 +55,13 @@ class YourParentTestCase extends AbstractTestCase
     use CanRecordTestResponses;
 }
 ```
-4. Enjoy it 😇😇😇
+
+5. Add hasAdminRoles: bool to User model
+```php
+public function hasAdminRole(): bool
+{
+    return $this->hasRole(config('appSection-authorization.admin_role'));
+}
+```
+
+6. Enjoy it 😇😇😇
