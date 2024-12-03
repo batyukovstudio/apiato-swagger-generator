@@ -56,7 +56,7 @@ class YourParentTestCase extends AbstractTestCase
 }
 ```
 
-5. Add hasAdminRoles: bool to User model
+5. Add function `hasAdminRole: bool` to User model
 ```php
 public function hasAdminRole(): bool
 {
