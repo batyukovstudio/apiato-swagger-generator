@@ -18,8 +18,8 @@ class Authenticate
 
         if (
             $user !== null &&
-            method_exists($user, 'hasAdminRoles') &&
-            $user->hasAdminRoles() === true
+            method_exists($user, 'hasAdminRole') &&
+            $user->hasAdminRole() === true
         ) {
             $hasAccess = true;
         }
