@@ -233,10 +233,22 @@ class RouteScannerService
         return $extracted;
     }
 
-    private function isIgnorable(string $uri): bool
+    private function isIgnoreNotLikeUri(string $uri): bool
+    {
+        $isIgnorable = true;
+        foreach ($this->ignoreNotLike as $item) {
+            if (Str::contains($uri, $item)) {
+                $isIgnorable = false;
+                break;
+            }
+        }
+
+        return $isIgnorable;
+    }
+
+    private function isIgnoreLikeUri(string $uri): bool
     {
         $isIgnorable = false;
-
         foreach ($this->ignoreLike as $item) {
             if (Str::contains($uri, $item)) {
                 $isIgnorable = true;
@@ -244,13 +256,15 @@ class RouteScannerService
             }
         }
 
+        return $isIgnorable;
+    }
+
+    private function isIgnorable(string $uri): bool
+    {
+        $isIgnorable = $this->isIgnoreNotLikeUri($uri);
+
         if ($isIgnorable === false) {
-            foreach ($this->ignoreNotLike as $item) {
-                if (!Str::contains($uri, $item)) {
-                    $isIgnorable = true;
-                    break;
-                }
-            }
+            $this->isIgnoreLikeUri($uri);
         }
 
         return $isIgnorable;
