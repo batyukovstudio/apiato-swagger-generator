@@ -199,7 +199,7 @@ class RouteScannerService
 
         foreach ($reflection->getParameters() as $parameter) {
             $className =  $parameter->getType()?->getName();
-            if (null === $className) {
+            if (null === $className || false === class_exists($className)) {
                 continue;
             }
 
